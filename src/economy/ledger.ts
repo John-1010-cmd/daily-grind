@@ -10,7 +10,8 @@ export type TransactionType =
   | 'fund_disbursement'
   | 'achievement_reward'
   | 'cat_gift'
-  | 'branch_unlock';
+  | 'branch_unlock'
+  | 'world_idle_income';
 
 export interface TransactionDetail {
   id: string;
@@ -189,5 +190,23 @@ export class EconomyLedger {
 
   public settleBranchUnlock(branchName: string, cost: number): TransactionDetail {
     return this.createTx('branch_unlock', cost, -cost, `为【${branchName}】备齐开店所需`);
+  }
+
+  public settleWorldIdleIncome(
+    shopName: string,
+    completedOrders: number,
+    gross: number,
+    applyStaffCut: boolean
+  ): TransactionDetail {
+    const staffCut = applyStaffCut && this.hooks.getStaffCut ? this.hooks.getStaffCut(gross) : 0;
+    const loanRepayment = this.hooks.repayFund ? this.hooks.repayFund(gross) : 0;
+    return this.createTx(
+      'world_idle_income',
+      gross,
+      gross - staffCut - loanRepayment,
+      `【${shopName}】挂机完成 ${completedOrders} 单`,
+      staffCut,
+      loanRepayment
+    );
   }
 }

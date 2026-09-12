@@ -29,7 +29,9 @@ import {
   advanceShop,
   BranchManager,
   createShopRuntime,
+  getCustomerIntervalMultiplier,
   prepareShopSwitch,
+  settleWorldIdle,
   ShopRuntime,
   ShopSimulationState
 } from './shop';
@@ -173,6 +175,81 @@ async function bootstrap() {
     repayFund: (gross) => fundManager.repayFromIncome(gross)
   });
 
+  let idleWelcomeMessage: string | null = null;
+  const settleOpenedWorld = () => {
+    const state = saveManager.getState();
+    const settled = settleWorldIdle({
+      inventory: inventory.getAllAvailable(),
+      unlockedRecipeIds: state.unlockedRecipes,
+      brewSpeedMultiplier: equipmentManager.getBrewSpeedMultiplier(),
+      mainStaff: {
+        hired: state.staff.hired,
+        duties: state.staff.duties.filter((duty): duty is StaffDuty =>
+          (SHOP_SIMULATION_CONFIG.AUTONOMOUS_DUTIES as readonly string[]).includes(duty)
+        )
+      },
+      shops: {
+        main: {
+          unlocked: true,
+          lastSettledAt: state.world.shops.main.lastSettledAt || state.lastSavedAt,
+          simulation: simulationStates.main,
+          decorOwnedCount: mainRuntime.decorManager.getOwnedVariantCount()
+        },
+        seaside: {
+          unlocked: state.world.shops.seaside.unlocked,
+          lastSettledAt: state.world.shops.seaside.lastSettledAt || state.lastSavedAt,
+          simulation: simulationStates.seaside,
+          decorOwnedCount: seasideRuntime.decorManager.getOwnedVariantCount()
+        }
+      }
+    }, gameClock.getWallClock());
+
+    inventory.reconcileAvailableStock(settled.state.inventory);
+    for (const shop of settled.shops) {
+      if (shop.gross <= 0) continue;
+      ledger.settleWorldIdleIncome(
+        shop.shopName,
+        shop.completedOrders,
+        shop.gross,
+        shop.shopId === 'main'
+      );
+      saveManager.updateState((draft) => {
+        draft.stats.completedOrders += shop.completedOrders;
+        draft.stats.totalRevenue += shop.gross;
+        for (const recipe of shop.recipes) {
+          draft.recipeMastery[recipe.recipeId] =
+            (draft.recipeMastery[recipe.recipeId] ?? 0) + recipe.count;
+        }
+      });
+    }
+    simulationStates.main = settled.state.shops.main.simulation;
+    simulationStates.seaside = settled.state.shops.seaside.simulation;
+    saveManager.updateState((draft) => {
+      draft.inventory = inventory.getAllStock();
+      draft.world.shops.main.lastSettledAt = settled.state.shops.main.lastSettledAt;
+      draft.world.shops.seaside.lastSettledAt = settled.state.shops.seaside.lastSettledAt;
+      draft.world.shops.main.simulation = structuredClone(simulationStates.main);
+      draft.world.shops.seaside.simulation = structuredClone(simulationStates.seaside);
+    });
+
+    if (settled.totalCompletedOrders > 0) {
+      const details = settled.shops
+        .filter((shop) => shop.completedOrders > 0)
+        .map((shop) => `${shop.shopName} ${shop.completedOrders} 单`)
+        .join('、');
+      idleWelcomeMessage = `欢迎回来！${details}，营业额 🪙${settled.totalGross} 已逐笔记到账本。`;
+    } else {
+      const mainSkipped = settled.shops.find((shop) =>
+        shop.shopId === 'main' &&
+        (shop.skipReason === 'MAIN_STAFF_MISSING' || shop.skipReason === 'MAIN_DUTY_CHAIN_INCOMPLETE')
+      );
+      if (offlineElapsedSeconds > 60 && mainSkipped) {
+        idleWelcomeMessage = '欢迎回来！本店没有完整的照看职责链，这段时间大家只是安静等候，没有消耗原料。';
+      }
+    }
+  };
+  settleOpenedWorld();
+
   // 常客接入顾客生成与点单
   mainRuntime.customerManager.setRegularHooks({
     pickRegular: (activeRegularIds) => {
@@ -269,8 +346,10 @@ async function bootstrap() {
   toastManagerRef.current = toastManager;
   storyModalRef.current = storyModal;
 
-  if (offlineElapsedSeconds > 60) {
-    toastManager.show(`欢迎回来！离线已过 ${offlineHours} 小时（分店挂机将在 M5 结算）`);
+  if (idleWelcomeMessage) {
+    toastManager.show(idleWelcomeMessage);
+  } else if (offlineElapsedSeconds > 60) {
+    toastManager.show(`欢迎回来！离线已过 ${offlineHours} 小时。店里一切都安安静静的。`);
   }
 
   // 8. Build Greybox Scene & Lighting
@@ -575,7 +654,10 @@ async function bootstrap() {
       {
         unlockedRecipeIds: savedState.unlockedRecipes,
         duties,
-        brewSpeedMultiplier: equipmentManager.getBrewSpeedMultiplier()
+        brewSpeedMultiplier: equipmentManager.getBrewSpeedMultiplier(),
+        customerIntervalMultiplier: getCustomerIntervalMultiplier(
+          shopRuntimes[shopId].decorManager.getOwnedVariantCount()
+        )
       }
     );
     simulationStates[shopId] = result.state;
@@ -690,6 +772,15 @@ async function bootstrap() {
         draft.inventory = inventory.getAllStock();
         draft.world.shops.main.simulation = structuredClone(simulationStates.main);
         draft.world.shops.seaside.simulation = structuredClone(simulationStates.seaside);
+        const settledAt = gameClock.getWallClock();
+        draft.world.shops.main.lastSettledAt = Math.max(
+          draft.world.shops.main.lastSettledAt,
+          settledAt
+        );
+        draft.world.shops.seaside.lastSettledAt = Math.max(
+          draft.world.shops.seaside.lastSettledAt,
+          settledAt
+        );
       });
 
       // M3：记录见过的猫睡姿（猫咪图鉴 + 成就）

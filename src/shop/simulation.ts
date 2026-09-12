@@ -22,6 +22,7 @@ export interface AdvanceShopOptions {
   unlockedRecipeIds: readonly string[];
   duties: readonly StaffDuty[];
   brewSpeedMultiplier: number;
+  customerIntervalMultiplier: number;
 }
 
 export interface AdvanceShopResult {
@@ -233,8 +234,14 @@ function runFixedStep(
       SHOP_SIMULATION_CONFIG.CUSTOMER_INTERVAL_MAX_MS -
       SHOP_SIMULATION_CONFIG.CUSTOMER_INTERVAL_MIN_MS;
     state.nextCustomerInMs =
-      SHOP_SIMULATION_CONFIG.CUSTOMER_INTERVAL_MIN_MS +
-      Math.floor(nextRandom(state) * (intervalRange + 1));
+      Math.max(
+        SHOP_SIMULATION_CONFIG.FIXED_TIMESTEP_MS,
+        Math.round(
+          (SHOP_SIMULATION_CONFIG.CUSTOMER_INTERVAL_MIN_MS +
+            Math.floor(nextRandom(state) * (intervalRange + 1))) *
+            options.customerIntervalMultiplier
+        )
+      );
   }
 
   state.customers = state.customers.filter((customer) =>
