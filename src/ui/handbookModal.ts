@@ -4,6 +4,7 @@ import { DecorManager } from '../decor';
 import { RegularManager } from '../regulars';
 import { SaveManager } from '../save';
 import { drinkIconHtml } from './drinkIcons';
+import { regularPortraitHtml } from './regularPortraits';
 
 type HandbookTab = 'regulars' | 'drinks' | 'furniture' | 'cat' | 'achievements';
 
@@ -134,7 +135,7 @@ export class HandbookModal {
 
       return `
         <div class="handbook-card ${met ? '' : 'locked'}">
-          <div class="hb-icon">${met ? def.portraitIcon : '❔'}</div>
+          <div class="hb-icon">${met ? regularPortraitHtml(def.id, def.portraitIcon, 64) : '❔'}</div>
           <div class="hb-name">${met ? def.name : '？？？'}</div>
           <div class="hb-sub">${met ? def.job : '还未光顾过的神秘客人'}</div>
           ${met ? `

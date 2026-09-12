@@ -34,6 +34,7 @@ import {
   ToastManager,
   WorldOverlay
 } from './ui';
+import { regularPortraitUrl } from './ui/regularPortraits';
 
 async function bootstrap() {
   // 1. Storage & Save Manager
@@ -171,6 +172,7 @@ async function bootstrap() {
       for (const story of result.newStories) {
         storyModalRef.current?.enqueue({
           portraitIcon: def?.portraitIcon ?? '👤',
+          portraitImage: def ? regularPortraitUrl(def.id) : undefined,
           speaker: def?.name ?? '常客',
           title: story.title,
           text: story.text

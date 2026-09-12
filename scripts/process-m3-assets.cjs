@@ -78,7 +78,30 @@ async function processDrinks() {
   await cutCells('artwork/m3/drinks-sheet-v1.png', cells, 'src/assets/drinks', 128);
 }
 
-processDrinks().catch((e) => {
+async function processRegulars() {
+  console.log('=== B. Regulars sheet -> src/assets/regulars ===');
+  // sheet 2172x724，单排 5 头像
+  const ids = ['regular_linwan', 'regular_laozhou', 'regular_susu', 'regular_akai', 'regular_xiaoya'];
+  const bounds = [
+    { left: 22, width: 412 },
+    { left: 456, width: 435 },
+    { left: 901, width: 413 },
+    { left: 1325, width: 423 },
+    { left: 1759, width: 413 }
+  ];
+  const cells = ids.map((id, i) => ({
+    name: `${id}.png`,
+    region: { left: bounds[i].left, top: 43, width: bounds[i].width, height: 674 }
+  }));
+  await cutCells('artwork/m3/regulars-sheet-v1.png', cells, 'src/assets/regulars', 192);
+}
+
+async function main() {
+  await processDrinks();
+  await processRegulars();
+}
+
+main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
