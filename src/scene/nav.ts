@@ -59,10 +59,15 @@ export function clampToWalkable(
  * Checks if a straight line between p1 and p2 stays entirely inside the walkable zones
  * by sampling points along the line segment.
  */
-export function isLineWalkable(p1: Point, p2: Point, stepSize = 16): boolean {
+export function isLineWalkable(
+  p1: Point,
+  p2: Point,
+  stepSize = 16,
+  zones: readonly Rect[] = WALKABLE_ZONES
+): boolean {
   const d = distance(p1, p2);
   if (d <= stepSize) {
-    return isPointInWalkable(p1) && isPointInWalkable(p2);
+    return isPointInWalkable(p1, zones) && isPointInWalkable(p2, zones);
   }
   const steps = Math.ceil(d / stepSize);
   for (let i = 0; i <= steps; i++) {
@@ -71,7 +76,7 @@ export function isLineWalkable(p1: Point, p2: Point, stepSize = 16): boolean {
       x: p1.x + (p2.x - p1.x) * t,
       y: p1.y + (p2.y - p1.y) * t
     };
-    if (!isPointInWalkable(pt)) {
+    if (!isPointInWalkable(pt, zones)) {
       return false;
     }
   }
@@ -81,11 +86,14 @@ export function isLineWalkable(p1: Point, p2: Point, stepSize = 16): boolean {
 export class NavGraph {
   private waypoints: Map<string, NavWaypoint> = new Map();
   private adjacency: Map<string, string[]> = new Map();
+  private zones: readonly Rect[];
 
   constructor(
     waypoints: readonly NavWaypoint[] = NAV_WAYPOINTS,
-    edges: readonly NavEdge[] = NAV_EDGES
+    edges: readonly NavEdge[] = NAV_EDGES,
+    zones: readonly Rect[] = WALKABLE_ZONES
   ) {
+    this.zones = zones;
     for (const wp of waypoints) {
       this.waypoints.set(wp.id, wp);
       this.adjacency.set(wp.id, []);
@@ -174,7 +182,7 @@ export class NavGraph {
    */
   public route(from: Point, to: Point): Point[] {
     // If straight line is already clear, direct path
-    if (isLineWalkable(from, to)) {
+    if (isLineWalkable(from, to, 16, this.zones)) {
       return [{ x: to.x, y: to.y }];
     }
 

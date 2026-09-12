@@ -558,6 +558,71 @@ export const TABLE_SEATS: readonly TableSeatDef[] = [
   }
 ] as const;
 
+export type ShopId = 'main' | 'seaside';
+
+export interface ShopSceneDefinition {
+  id: ShopId;
+  name: string;
+  backgroundKey: ShopId;
+  sceneObjects: readonly SceneObjectConfig[];
+  walkableZones: readonly Rect[];
+  navWaypoints: readonly NavWaypoint[];
+  navEdges: readonly NavEdge[];
+  tableSeats: readonly TableSeatDef[];
+  playerStart: Point;
+  customerSpawn: Point;
+  customerExit: Point;
+  catEnabled: boolean;
+}
+
+export const SEASIDE_SCENE_OBJECTS: readonly SceneObjectConfig[] = [
+  { id: 'window', name: '临海落地窗', x: 0, y: 30, width: 760, height: 390, color: 0x9fd8ea, interactPoint: { x: 600, y: 450 }, hitbox: { x: 0, y: 0, width: 770, height: 410 }, description: '潮声隔着玻璃轻轻涌来，远处的灯塔守着海面。' },
+  { id: 'counter', name: '漂白木吧台', x: 860, y: 300, width: 500, height: 250, color: 0xd9c2a3, interactPoint: { x: 820, y: 520 }, hitbox: { x: 850, y: 285, width: 526, height: 280 }, description: '被海风吹成浅色的木吧台，摸起来温润光滑。' },
+  { id: 'espresso_machine', name: '海蓝意式咖啡机', x: 1120, y: 245, width: 190, height: 130, color: 0x6f8992, interactPoint: { x: 1030, y: 500 }, hitbox: { x: 1100, y: 225, width: 220, height: 160 }, description: '在潮声里稳定地嘶嘶萃取。' },
+  { id: 'pastry_case', name: '海边糕点柜', x: 900, y: 250, width: 190, height: 150, color: 0xd4a373, interactPoint: { x: 850, y: 500 }, hitbox: { x: 885, y: 235, width: 220, height: 180 }, description: '玻璃柜里的面包沾着清晨的暖光。' },
+  { id: 'table_1', name: '临窗一号桌', x: 180, y: 400, width: 300, height: 150, color: 0xb58451, interactPoint: { x: 500, y: 520 }, hitbox: { x: 155, y: 380, width: 350, height: 190 }, description: '坐下就能望见灯塔的一桌。' },
+  { id: 'table_2', name: '海景二号桌', x: 555, y: 330, width: 180, height: 100, color: 0xb58451, interactPoint: { x: 650, y: 475 }, hitbox: { x: 535, y: 310, width: 225, height: 140 }, description: '正对着海平线的安静双人桌。' },
+  { id: 'table_3', name: '前厅三号桌', x: 0, y: 520, width: 365, height: 210, color: 0xb58451, interactPoint: { x: 390, y: 620 }, hitbox: { x: 0, y: 500, width: 390, height: 240 }, description: '贝壳灯旁边总有一小块阳光。' },
+  { id: 'table_4', name: '前厅四号桌', x: 1030, y: 535, width: 346, height: 200, color: 0xb58451, interactPoint: { x: 980, y: 640 }, hitbox: { x: 1020, y: 515, width: 356, height: 235 }, description: '铺着海盐蓝坐垫的宽桌。' }
+] as const;
+
+export const SEASIDE_WALKABLE_ZONES: readonly Rect[] = [
+  { x: 360, y: 430, width: 500, height: 290 },
+  { x: 710, y: 450, width: 350, height: 220 },
+  { x: 530, y: 390, width: 260, height: 130 },
+  { x: 820, y: 500, width: 210, height: 100 }
+] as const;
+
+export const SEASIDE_NAV_WAYPOINTS: readonly NavWaypoint[] = [
+  { id: 'sea_entry', name: '海边店入口', x: 680, y: 710 },
+  { id: 'sea_center', name: '中央走道', x: 680, y: 570 },
+  { id: 'sea_left', name: '临窗走道', x: 500, y: 520 },
+  { id: 'sea_rear', name: '后窗桌旁', x: 650, y: 475 },
+  { id: 'sea_counter_left', name: '糕点柜前', x: 850, y: 500 },
+  { id: 'sea_counter_right', name: '咖啡机前', x: 1030, y: 500 },
+  { id: 'sea_table3', name: '三号桌旁', x: 390, y: 620 },
+  { id: 'sea_table4', name: '四号桌旁', x: 980, y: 640 }
+] as const;
+
+export const SEASIDE_NAV_EDGES: readonly NavEdge[] = [
+  { from: 'sea_entry', to: 'sea_center' },
+  { from: 'sea_center', to: 'sea_left' },
+  { from: 'sea_center', to: 'sea_rear' },
+  { from: 'sea_center', to: 'sea_counter_left' },
+  { from: 'sea_center', to: 'sea_table3' },
+  { from: 'sea_center', to: 'sea_table4' },
+  { from: 'sea_rear', to: 'sea_counter_left' },
+  { from: 'sea_counter_left', to: 'sea_counter_right' },
+  { from: 'sea_counter_right', to: 'sea_table4' }
+] as const;
+
+export const SEASIDE_TABLE_SEATS: readonly TableSeatDef[] = [
+  { id: 'sea_seat_1', tableId: 'table_1', name: '临窗一号桌', seatPos: { x: 365, y: 455 }, interactPoint: { x: 500, y: 520 } },
+  { id: 'sea_seat_2', tableId: 'table_2', name: '海景二号桌', seatPos: { x: 710, y: 390 }, interactPoint: { x: 650, y: 475 } },
+  { id: 'sea_seat_3', tableId: 'table_3', name: '前厅三号桌', seatPos: { x: 300, y: 600 }, interactPoint: { x: 390, y: 620 } },
+  { id: 'sea_seat_4', tableId: 'table_4', name: '前厅四号桌', seatPos: { x: 1110, y: 610 }, interactPoint: { x: 980, y: 640 } }
+] as const;
+
 export interface CatSpotDef {
   id: string;
   name: string;
@@ -625,6 +690,37 @@ export const CUSTOMER_CONFIG = {
   SPAWN_POS: { x: 520, y: 480 },
   EXIT_POS: { x: 520, y: 550 }
 } as const;
+
+export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
+  main: {
+    id: 'main',
+    name: '街角本店',
+    backgroundKey: 'main',
+    sceneObjects: SCENE_OBJECTS,
+    walkableZones: WALKABLE_ZONES,
+    navWaypoints: NAV_WAYPOINTS,
+    navEdges: NAV_EDGES,
+    tableSeats: TABLE_SEATS,
+    playerStart: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
+    customerSpawn: CUSTOMER_CONFIG.SPAWN_POS,
+    customerExit: CUSTOMER_CONFIG.EXIT_POS,
+    catEnabled: true
+  },
+  seaside: {
+    id: 'seaside',
+    name: '海风分店',
+    backgroundKey: 'seaside',
+    sceneObjects: SEASIDE_SCENE_OBJECTS,
+    walkableZones: SEASIDE_WALKABLE_ZONES,
+    navWaypoints: SEASIDE_NAV_WAYPOINTS,
+    navEdges: SEASIDE_NAV_EDGES,
+    tableSeats: SEASIDE_TABLE_SEATS,
+    playerStart: { x: 680, y: 680 },
+    customerSpawn: { x: 680, y: 730 },
+    customerExit: { x: 680, y: 730 },
+    catEnabled: false
+  }
+};
 
 export const SESSION_RELEASE_CONDITIONS = {
   TARGET_ORDERS_IN_15_MIN: 8,
@@ -1003,6 +1099,29 @@ export const DECOR_SLOTS: readonly DecorSlotDef[] = [
   }
 ] as const;
 
+export const SEASIDE_DECOR_SLOTS: readonly DecorSlotDef[] = [
+  {
+    id: 'sea_slot_table_1',
+    name: '临窗桌摆件',
+    sceneObjectId: 'table_1',
+    icon: '🐚',
+    variants: [
+      { id: 'sea_table_clear', name: '清爽木桌', cost: 0, description: '把海景完整留在桌面上。' },
+      { id: 'sea_shells', name: '海玻璃贝壳盏', cost: 120, description: '散步时拾来的贝壳，盛在海玻璃浅盏里。' }
+    ]
+  },
+  {
+    id: 'sea_slot_table_3',
+    name: '前厅桌灯',
+    sceneObjectId: 'table_3',
+    icon: '🏮',
+    variants: [
+      { id: 'sea_lamp_clear', name: '午后自然光', cost: 0, description: '海风和日光就是最好的装饰。' },
+      { id: 'sea_lantern', name: '藤编海蓝灯', cost: 140, description: '入夜后亮起一小团安静的海蓝色。' }
+    ]
+  }
+] as const;
+
 export interface DecorThemeDef {
   id: string;
   name: string;
@@ -1017,6 +1136,11 @@ export const DECOR_THEMES: readonly DecorThemeDef[] = [
   { id: 'theme_matcha', name: '抹茶清新', description: '淡淡的抹茶绿，像雨后的庭院。', cost: 150, tintColor: 0xa8d5a2, tintAlpha: 0.08 },
   { id: 'theme_dusk', name: '暮色紫藤', description: '紫藤花架下的黄昏色调。', cost: 150, tintColor: 0xb8a9d9, tintAlpha: 0.08 },
   { id: 'theme_sea', name: '海盐蓝调', description: '一点点海盐蓝，预告远方的分店。', cost: 200, tintColor: 0xa9d0e8, tintAlpha: 0.08 }
+] as const;
+
+export const SEASIDE_DECOR_THEMES: readonly DecorThemeDef[] = [
+  { id: 'sea_theme_breeze', name: '晴日海风', description: '分店最初的明亮海盐色。', cost: 0, tintColor: 0x000000, tintAlpha: 0 },
+  { id: 'sea_theme_coral', name: '晚霞珊瑚', description: '浅浅珊瑚粉映在漂白木上。', cost: 220, tintColor: 0xf0a58c, tintAlpha: 0.08 }
 ] as const;
 
 // ==================== M3 经营厚度：成就 (T3.7) ====================

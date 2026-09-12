@@ -72,6 +72,12 @@ export interface RegularHooks {
   ) => { kind: 'exclusive'; recipe: RecipeDef } | { kind: 'preferred'; recipeId: string } | null;
 }
 
+export interface CustomerSceneOptions {
+  tableSeats: readonly TableSeatDef[];
+  spawnPos: Point;
+  exitPos: Point;
+}
+
 export class CustomerManager {
   private customers: Customer[] = [];
   private spawnTimer: number = 2; // Initial spawn soon after launch
@@ -79,6 +85,7 @@ export class CustomerManager {
   private inventory: InventoryManager;
   private orderStateMachine: OrderStateMachine;
   private nextCustomerId = 1;
+  private sceneOptions: CustomerSceneOptions;
 
   /** M3：常客生成与点单偏好（由 main 注入） */
   private regularHooks: RegularHooks | null = null;
@@ -86,11 +93,17 @@ export class CustomerManager {
   constructor(
     navGraph: NavGraph,
     inventory: InventoryManager,
-    orderStateMachine: OrderStateMachine
+    orderStateMachine: OrderStateMachine,
+    sceneOptions: CustomerSceneOptions = {
+      tableSeats: TABLE_SEATS,
+      spawnPos: CUSTOMER_CONFIG.SPAWN_POS,
+      exitPos: CUSTOMER_CONFIG.EXIT_POS
+    }
   ) {
     this.navGraph = navGraph;
     this.inventory = inventory;
     this.orderStateMachine = orderStateMachine;
+    this.sceneOptions = sceneOptions;
   }
 
   public setRegularHooks(hooks: RegularHooks): void {
@@ -130,7 +143,7 @@ export class CustomerManager {
     }
 
     const occupiedTables = this.getOccupiedTableIds();
-    const availableSeats = TABLE_SEATS.filter((s) => !occupiedTables.has(s.tableId));
+    const availableSeats = this.sceneOptions.tableSeats.filter((s) => !occupiedTables.has(s.tableId));
     if (availableSeats.length === 0) {
       return null;
     }
@@ -156,7 +169,7 @@ export class CustomerManager {
       color = CUSTOMER_PALETTES[Math.floor(Math.random() * CUSTOMER_PALETTES.length)];
     }
 
-    const spawnPos = { ...CUSTOMER_CONFIG.SPAWN_POS };
+    const spawnPos = { ...this.sceneOptions.spawnPos };
     const walkPath = this.navGraph.route(spawnPos, chosenSeat.seatPos);
 
     const customer: Customer = {
@@ -270,7 +283,7 @@ export class CustomerManager {
     }
 
     customer.state = 'LEAVING';
-    customer.walkPath = this.navGraph.route(customer.pos, CUSTOMER_CONFIG.EXIT_POS);
+    customer.walkPath = this.navGraph.route(customer.pos, this.sceneOptions.exitPos);
   }
 
   public update(deltaSeconds: number, unlockedRecipeIds: readonly string[]): void {

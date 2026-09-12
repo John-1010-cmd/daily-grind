@@ -6,6 +6,8 @@ import plantSucculentUrl from '../assets/decor/plant_succulent.webp';
 import shelfLadderUrl from '../assets/decor/shelf_ladder.webp';
 import tableClothUrl from '../assets/decor/table_cloth.webp';
 import tableIronUrl from '../assets/decor/table_iron.webp';
+import seasideLanternUrl from '../assets/decor/seaside-lantern.webp';
+import seasideShellsUrl from '../assets/decor/seaside-shells.webp';
 
 export interface DecorSpritePlacement {
   x: number;
@@ -25,7 +27,9 @@ export const DECOR_SPRITE_URLS: Record<string, string> = {
   pastry_copper: pastryCopperUrl,
   table_cloth: tableClothUrl,
   table_iron: tableIronUrl,
-  shelf_ladder: shelfLadderUrl
+  shelf_ladder: shelfLadderUrl,
+  sea_shells: seasideShellsUrl,
+  sea_lantern: seasideLanternUrl
 };
 
 /** 槽位 ID → 摆放位置（对齐 SCENE_OBJECTS 的物件中心，覆盖在底图烘焙家具之上） */
@@ -41,7 +45,9 @@ export const DECOR_SLOT_PLACEMENTS: Record<string, DecorSpritePlacement> = {
   slot_table_2: { x: 1050, y: 625, width: 180 },
   slot_table_3: { x: 630, y: 500, width: 150 },
   // 右侧书架整架覆盖
-  slot_bookshelf: { x: 1308, y: 355, width: 175 }
+  slot_bookshelf: { x: 1308, y: 355, width: 175 },
+  sea_slot_table_1: { x: 320, y: 448, width: 96 },
+  sea_slot_table_3: { x: 218, y: 586, width: 80 }
 };
 
 /** 干花花环与多肉拼盘与槽位默认摆放不同：挂门上部 / 搁窗台上 */

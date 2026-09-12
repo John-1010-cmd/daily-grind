@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   NAV_EDGES,
   NAV_WAYPOINTS,
-  SCENE_OBJECTS
+  SCENE_OBJECTS,
+  SHOP_SCENES
 } from '../src/config';
 import {
   NavGraph,
@@ -92,5 +93,21 @@ describe('Navigation Graph & Click Rules (T0.4 & T0.5)', () => {
       expect(obj.hitbox.x).toBeLessThanOrEqual(obj.x);
       expect(obj.hitbox.y).toBeLessThanOrEqual(obj.y);
     }
+  });
+
+  it('7. 海风分店拥有独立且连通的导航图与交互热区', () => {
+    const seaside = SHOP_SCENES.seaside;
+    const seasideNav = new NavGraph(
+      seaside.navWaypoints,
+      seaside.navEdges,
+      seaside.walkableZones
+    );
+    const route = seasideNav.route(seaside.playerStart, seaside.sceneObjects[0].interactPoint);
+
+    expect(seaside.catEnabled).toBe(false);
+    expect(seaside.tableSeats).toHaveLength(4);
+    expect(route.at(-1)).toEqual(seaside.sceneObjects[0].interactPoint);
+    expect(isPointInWalkable(route.at(-1)!, seaside.walkableZones)).toBe(true);
+    expect(findHitObject({ x: 1150, y: 300 }, seaside.sceneObjects)?.id).toBe('espresso_machine');
   });
 });

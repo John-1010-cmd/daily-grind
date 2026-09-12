@@ -22,10 +22,14 @@ import shelfLadderUrl from './decor/shelf_ladder.webp';
 import tableClothUrl from './decor/table_cloth.webp';
 import tableIronUrl from './decor/table_iron.webp';
 import sceneBaseUrl from './scene/scene-base.webp';
+import seasideLanternUrl from './decor/seaside-lantern.webp';
+import seasideShellsUrl from './decor/seaside-shells.webp';
+import sceneSeasideUrl from './scene/scene-seaside.webp';
 
 /** Pixi v8 不再替 Texture.from(url) 隐式加载；创建场景前统一预热所有 Pixi 位图。 */
 export const CORE_PIXI_ASSETS = [
   sceneBaseUrl,
+  sceneSeasideUrl,
   catBlinkUrl,
   catCurledUrl,
   catStretchUrl,
@@ -48,5 +52,7 @@ export const CORE_PIXI_ASSETS = [
   plantSucculentUrl,
   shelfLadderUrl,
   tableClothUrl,
-  tableIronUrl
+  tableIronUrl,
+  seasideLanternUrl,
+  seasideShellsUrl
 ] as const;

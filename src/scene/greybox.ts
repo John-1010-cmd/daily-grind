@@ -6,16 +6,13 @@ import {
   TextStyle,
   Texture
 } from 'pixi.js';
-import sceneBaseUrl from '../assets/scene/scene-base.webp';
 import {
-  NAV_EDGES,
-  NAV_WAYPOINTS,
   PLAYER_CONFIG,
   Point,
-  SCENE_OBJECTS,
   SCREEN_CONFIG,
   SceneObjectConfig,
-  WALKABLE_ZONES
+  SHOP_SCENES,
+  ShopSceneDefinition
 } from '../config';
 import { Customer, CustomerManager } from '../customer';
 import { DecorManager } from '../decor';
@@ -34,6 +31,7 @@ import {
   isPointInWalkable
 } from './nav';
 import { OwnerCharacter } from './ownerCharacter';
+import { SHOP_SCENE_BACKGROUND_URLS } from './shopSceneAssets';
 
 export interface GreyboxCallbacks {
   onObjectInteract: (obj: SceneObjectConfig) => void;
@@ -68,6 +66,7 @@ export class GreyboxScene {
   private isDebugVisible: boolean = false;
   private customerManager: CustomerManager | null = null;
   private decorManager: DecorManager | null = null;
+  private sceneDefinition: ShopSceneDefinition;
 
   private clickFeedbackGraphic: Graphics;
   private clickFeedbackTime: number = 0;
@@ -75,12 +74,18 @@ export class GreyboxScene {
   constructor(
     initialPosition: Point,
     callbacks: GreyboxCallbacks,
-    initialDebugState: boolean = false
+    initialDebugState: boolean = false,
+    sceneDefinition: ShopSceneDefinition = SHOP_SCENES.main
   ) {
     this.playerPos = { ...initialPosition };
     this.callbacks = callbacks;
     this.isDebugVisible = initialDebugState;
-    this.navGraph = new NavGraph();
+    this.sceneDefinition = sceneDefinition;
+    this.navGraph = new NavGraph(
+      sceneDefinition.navWaypoints,
+      sceneDefinition.navEdges,
+      sceneDefinition.walkableZones
+    );
 
     this.container = new Container();
     this.container.label = 'GreyboxScene';
@@ -105,6 +110,7 @@ export class GreyboxScene {
     // 2. Finished Cat Component (T2.6)
     this.catComponent = new CatComponent();
     this.objectsLayer.addChild(this.catComponent.container);
+    this.catComponent.container.visible = sceneDefinition.catEnabled;
 
     // 3. Customer Rendering Layer
     this.customersGraphic = new Graphics();
@@ -124,6 +130,28 @@ export class GreyboxScene {
 
   public setCustomerManager(mgr: CustomerManager): void {
     this.customerManager = mgr;
+  }
+
+  public setSceneDefinition(sceneDefinition: ShopSceneDefinition): void {
+    this.sceneDefinition = sceneDefinition;
+    this.navGraph = new NavGraph(
+      sceneDefinition.navWaypoints,
+      sceneDefinition.navEdges,
+      sceneDefinition.walkableZones
+    );
+    this.targetPath = [];
+    this.pendingInteractObject = null;
+    this.pendingCustomer = null;
+    this.pendingCat = false;
+    this.customerSprites.forEach((sprite) => sprite.container.destroy({ children: true }));
+    this.customerSprites.clear();
+    this.customersLayer.removeChildren();
+    this.customersGraphic = new Graphics();
+    this.customersLayer.addChild(this.customersGraphic);
+    this.catComponent.container.visible = sceneDefinition.catEnabled;
+    this.buildSceneBackground();
+    this.setPlayerPosition(sceneDefinition.playerStart);
+    this.updateDebugOverlay();
   }
 
   public setDecorManager(mgr: DecorManager): void {
@@ -160,7 +188,10 @@ export class GreyboxScene {
   }
 
   private buildSceneBackground(): void {
-    const bgSprite = new Sprite(Texture.from(sceneBaseUrl));
+    this.backgroundLayer.removeChildren().forEach((child) => child.destroy());
+    const bgSprite = new Sprite(
+      Texture.from(SHOP_SCENE_BACKGROUND_URLS[this.sceneDefinition.backgroundKey])
+    );
     bgSprite.width = SCREEN_CONFIG.DESIGN_WIDTH;
     bgSprite.height = SCREEN_CONFIG.DESIGN_HEIGHT;
     this.backgroundLayer.addChild(bgSprite);
@@ -194,7 +225,7 @@ export class GreyboxScene {
 
       // If enjoying drink, show little coffee cup on table
       if (c.state === 'ENJOYING_DRINK' || c.state === 'WAITING_TO_PAY') {
-        const tableObj = SCENE_OBJECTS.find((o) => o.id === c.seat.tableId);
+        const tableObj = this.sceneDefinition.sceneObjects.find((o) => o.id === c.seat.tableId);
         if (tableObj) {
           const cupX = tableObj.x + tableObj.width / 2;
           const cupY = tableObj.y + tableObj.height / 2;
@@ -237,14 +268,14 @@ export class GreyboxScene {
     });
 
     // 1. Draw Walkable Zones in translucent emerald green
-    for (const zone of WALKABLE_ZONES) {
+    for (const zone of this.sceneDefinition.walkableZones) {
       g.rect(zone.x, zone.y, zone.width, zone.height);
       g.fill({ color: 0x2ecc71, alpha: 0.18 });
       g.stroke({ width: 1.5, color: 0x27ae60 });
     }
 
     // 2. Draw Object Hitboxes in translucent amber
-    for (const obj of SCENE_OBJECTS) {
+    for (const obj of this.sceneDefinition.sceneObjects) {
       g.rect(obj.hitbox.x, obj.hitbox.y, obj.hitbox.width, obj.hitbox.height);
       g.fill({ color: 0xf39c12, alpha: 0.12 });
       g.stroke({ width: 1.5, color: 0xd35400 });
@@ -265,9 +296,9 @@ export class GreyboxScene {
     }
 
     // 3. Draw Nav Edges in cyan
-    for (const edge of NAV_EDGES) {
-      const fromWp = NAV_WAYPOINTS.find((w) => w.id === edge.from);
-      const toWp = NAV_WAYPOINTS.find((w) => w.id === edge.to);
+    for (const edge of this.sceneDefinition.navEdges) {
+      const fromWp = this.sceneDefinition.navWaypoints.find((w) => w.id === edge.from);
+      const toWp = this.sceneDefinition.navWaypoints.find((w) => w.id === edge.to);
       if (fromWp && toWp) {
         g.moveTo(fromWp.x, fromWp.y);
         g.lineTo(toWp.x, toWp.y);
@@ -276,7 +307,7 @@ export class GreyboxScene {
     }
 
     // 4. Draw Nav Waypoint Nodes
-    for (const wp of NAV_WAYPOINTS) {
+    for (const wp of this.sceneDefinition.navWaypoints) {
       g.circle(wp.x, wp.y, 5);
       g.fill(0x0984e3);
       g.stroke({ width: 1.5, color: 0xffffff });
@@ -303,7 +334,7 @@ export class GreyboxScene {
     // Rule 1: Cat / Customer / Object prioritized over empty ground move
     // 1A. Check if clicked near Cat
     const catSpot = this.catComponent.getCurrentSpot();
-    if (distance(pt, catSpot.pos) <= 50) {
+    if (this.sceneDefinition.catEnabled && distance(pt, catSpot.pos) <= 50) {
       const d = distance(this.playerPos, catSpot.interactPoint);
       if (d <= 36) {
         this.targetPath = [];
@@ -344,10 +375,14 @@ export class GreyboxScene {
     }
 
     // 1C. Check if clicked on a scene object
-    const hit = findHitObject(pt);
+    const hit = findHitObject(pt, this.sceneDefinition.sceneObjects);
     if (hit) {
       // If clicked on cat cushion or table with cat
-      if (hit.id === 'cat_cushion' || (hit.id === 'cat_and_table_4' && catSpot.id === 'spot_table_4')) {
+      if (
+        this.sceneDefinition.catEnabled &&
+        (hit.id === 'cat_cushion' ||
+          (hit.id === 'cat_and_table_4' && catSpot.id === 'spot_table_4'))
+      ) {
         const d = distance(this.playerPos, catSpot.interactPoint);
         if (d <= 36) {
           this.targetPath = [];
@@ -405,7 +440,11 @@ export class GreyboxScene {
     this.pendingInteractObject = null;
     this.pendingCustomer = null;
     this.pendingCat = false;
-    const targetPoint = clampToWalkable(pt);
+    const targetPoint = clampToWalkable(
+      pt,
+      this.sceneDefinition.walkableZones,
+      this.sceneDefinition.navWaypoints
+    );
     this.targetPath = this.navGraph.route(this.playerPos, targetPoint);
     this.updateDebugOverlay();
   }
@@ -440,7 +479,9 @@ export class GreyboxScene {
 
   public update(deltaSeconds: number): void {
     this.drawCustomers(deltaSeconds);
-    this.catComponent.update(deltaSeconds);
+    if (this.sceneDefinition.catEnabled) {
+      this.catComponent.update(deltaSeconds);
+    }
 
     if (this.clickFeedbackTime > 0) {
       this.clickFeedbackTime -= deltaSeconds;
@@ -475,14 +516,24 @@ export class GreyboxScene {
 
         // Collision check with walkable zones (with axis sliding)
         let moved = false;
-        if (isPointInWalkable({ x: nextX, y: nextY })) {
+        if (isPointInWalkable({ x: nextX, y: nextY }, this.sceneDefinition.walkableZones)) {
           this.playerPos.x = nextX;
           this.playerPos.y = nextY;
           moved = true;
-        } else if (isPointInWalkable({ x: nextX, y: this.playerPos.y })) {
+        } else if (
+          isPointInWalkable(
+            { x: nextX, y: this.playerPos.y },
+            this.sceneDefinition.walkableZones
+          )
+        ) {
           this.playerPos.x = nextX;
           moved = true;
-        } else if (isPointInWalkable({ x: this.playerPos.x, y: nextY })) {
+        } else if (
+          isPointInWalkable(
+            { x: this.playerPos.x, y: nextY },
+            this.sceneDefinition.walkableZones
+          )
+        ) {
           this.playerPos.y = nextY;
           moved = true;
         }
