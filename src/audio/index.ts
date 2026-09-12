@@ -28,6 +28,14 @@ function clampVolume(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
 
+export function calculateCrossfadeTiming(durationSeconds: number): { crossfade: number; stride: number } {
+  const crossfade = Math.min(AUDIO_CONFIG.BGM_CROSSFADE_SECONDS, durationSeconds / 4);
+  return {
+    crossfade,
+    stride: Math.max(durationSeconds - crossfade, crossfade)
+  };
+}
+
 /** Web Audio 混音器：用户首次交互后解锁，BGM 以双音源交叉淡化调度。 */
 export class AudioManager {
   private context: AudioContext | null = null;
@@ -116,8 +124,7 @@ export class AudioManager {
     if (!this.context || !this.musicGain) return;
     const buffer = this.buffers.get('bgm');
     if (!buffer) return;
-    const crossfade = Math.min(AUDIO_CONFIG.BGM_CROSSFADE_SECONDS, buffer.duration / 4);
-    const stride = Math.max(buffer.duration - crossfade, crossfade);
+    const { crossfade, stride } = calculateCrossfadeTiming(buffer.duration);
     const horizon = this.context.currentTime + AUDIO_CONFIG.BGM_SCHEDULE_AHEAD_SECONDS;
 
     while (this.nextBgmStart <= horizon) {
