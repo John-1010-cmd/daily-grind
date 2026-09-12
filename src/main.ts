@@ -491,7 +491,7 @@ async function bootstrap() {
         saveManager.setShopPlayerPosition(activeShopId, Math.round(pos.x), Math.round(pos.y));
       }
     },
-    initialSave.settings.debugNavOverlay,
+    import.meta.env.DEV && initialSave.settings.debugNavOverlay,
     activeRuntime.scene
   );
 
@@ -618,7 +618,7 @@ async function bootstrap() {
       return;
     }
     void audioManager.unlock();
-    if (e.key === 'F2') {
+    if (import.meta.env.DEV && e.key === 'F2') {
       const nextDebug = !greyboxScene.isDebug();
       greyboxScene.setDebugVisible(nextDebug);
       saveManager.setDebugNavOverlay(nextDebug);
@@ -797,7 +797,7 @@ async function bootstrap() {
     }
   });
 
-  console.log('Daily Grind M3 经营厚度已启动。');
+  console.log('Daily Grind v1 已启动。');
 }
 
 bootstrap().catch((err) => {

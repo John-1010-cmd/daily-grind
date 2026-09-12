@@ -171,7 +171,8 @@ export class Hud {
     hudLayer.appendChild(hudRight);
     this.root.appendChild(hudLayer);
 
-    // 3. Debug Overlay Toggle (Bottom Left)
+    // 3. Debug Overlay Toggle (Bottom Left)：仅开发构建可见，正式作品集不暴露灰盒工具。
+    if (!import.meta.env.DEV) return;
     const debugBar = document.createElement('div');
     debugBar.className = 'debug-bar';
     const debugBtn = document.createElement('button');
