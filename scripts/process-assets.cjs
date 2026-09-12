@@ -106,20 +106,14 @@ async function processAllAssets() {
   console.log('\n=== 3. Processing Scene Background ===');
   const sceneOutDir = path.resolve('src/assets/scene');
 
-  // We have style-reference.png (master composition: 1376x768).
-  // Let's create the empty scene base image aligned with 1376x768.
-  // Using sharp to composite clean wooden table / counter surfaces over the seated figures.
-  await sharp('style-reference.png')
+  // 空场景底图由 gpt-image-2 垫图编辑产出（迭代稿见 artwork/scene/，
+  // 评审记录见 docs/art-pipeline.md 第 3.1 节），此处只做画幅对齐与压缩。
+  await sharp('artwork/scene/scene-empty-final.png')
     .resize(1376, 768)
     .webp({ quality: 88 })
     .toFile(path.join(sceneOutDir, 'scene-base.webp'));
 
-  await sharp('style-reference.png')
-    .resize(1376, 768)
-    .png({ compressionLevel: 9 })
-    .toFile(path.join(sceneOutDir, 'scene-base.png'));
-
-  console.log('✓ Generated scene-base.webp and scene-base.png (1376x768)');
+  console.log('✓ Generated scene-base.webp (1376x768)');
 }
 
 processAllAssets().catch(console.error);
