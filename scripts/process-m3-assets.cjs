@@ -110,10 +110,40 @@ async function processPassenger() {
   await cutCells('artwork/m3/passenger-raw.png', parts, 'src/assets/characters/passenger', 44);
 }
 
+async function processDecor() {
+  console.log('=== D. Decor sheet -> src/assets/decor ===');
+  // decor-sheet 1536x1024，2 行 4 列物件图排，按实际边界逐件切（trim 自动收边）
+  const items = [
+    { name: 'plant_pothos', region: { left: 23, top: 0, width: 308, height: 507 } },
+    { name: 'door_lace', region: { left: 384, top: 31, width: 323, height: 484 } },
+    { name: 'door_wreath', region: { left: 760, top: 69, width: 361, height: 407 } },
+    { name: 'pastry_copper', region: { left: 1129, top: 84, width: 399, height: 392 } },
+    { name: 'table_cloth', region: { left: 8, top: 545, width: 368, height: 438 } },
+    { name: 'table_iron', region: { left: 399, top: 545, width: 338, height: 438 } },
+    { name: 'shelf_ladder', region: { left: 791, top: 492, width: 320, height: 507 } },
+    { name: 'plant_succulent', region: { left: 1121, top: 584, width: 407, height: 338 } }
+  ];
+  // 装修件细节多，webp 显著省体积
+  for (const item of items) {
+    const extracted = await sharp('artwork/m3/decor-sheet-v1.png')
+      .extract(item.region)
+      .png()
+      .toBuffer();
+    const transparent = await removeWhiteBackground(extracted);
+    await sharp(transparent)
+      .trim()
+      .resize({ width: 256, fit: 'inside' })
+      .webp({ quality: 85 })
+      .toFile(path.join('src/assets/decor', `${item.name}.webp`));
+    console.log(`✓ ${item.name}.webp`);
+  }
+}
+
 async function main() {
   await processDrinks();
   await processRegulars();
   await processPassenger();
+  await processDecor();
 }
 
 main().catch((e) => {

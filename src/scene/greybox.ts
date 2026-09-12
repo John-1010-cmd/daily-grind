@@ -18,8 +18,14 @@ import {
   WALKABLE_ZONES
 } from '../config';
 import { Customer, CustomerManager } from '../customer';
+import { DecorManager } from '../decor';
 import { CatComponent } from './catComponent';
 import { CustomerCharacter } from './customerCharacter';
+import {
+  DECOR_SLOT_PLACEMENTS,
+  DECOR_SPRITE_URLS,
+  DECOR_VARIANT_PLACEMENT_OVERRIDES
+} from './decorSprites';
 import {
   NavGraph,
   clampToWalkable,
@@ -40,6 +46,7 @@ export class GreyboxScene {
   public readonly container: Container;
   private backgroundLayer: Container;
   private objectsLayer: Container;
+  private decorLayer: Container;
   private customersLayer: Container;
   private playerLayer: Container;
   private debugLayer: Container;
@@ -60,6 +67,7 @@ export class GreyboxScene {
   private keysPressed: Set<string> = new Set();
   private isDebugVisible: boolean = false;
   private customerManager: CustomerManager | null = null;
+  private decorManager: DecorManager | null = null;
 
   private clickFeedbackGraphic: Graphics;
   private clickFeedbackTime: number = 0;
@@ -79,12 +87,14 @@ export class GreyboxScene {
 
     this.backgroundLayer = new Container();
     this.objectsLayer = new Container();
+    this.decorLayer = new Container();
     this.customersLayer = new Container();
     this.playerLayer = new Container();
     this.debugLayer = new Container();
 
     this.container.addChild(this.backgroundLayer);
     this.container.addChild(this.objectsLayer);
+    this.container.addChild(this.decorLayer);
     this.container.addChild(this.customersLayer);
     this.container.addChild(this.playerLayer);
     this.container.addChild(this.debugLayer);
@@ -114,6 +124,35 @@ export class GreyboxScene {
 
   public setCustomerManager(mgr: CustomerManager): void {
     this.customerManager = mgr;
+  }
+
+  public setDecorManager(mgr: DecorManager): void {
+    this.decorManager = mgr;
+    this.refreshDecor();
+  }
+
+  /**
+   * 装修覆盖层重绘（T3.1 / T3.8 批次 D）：
+   * 选中非默认款式的槽位叠加水彩物件贴图；主题色调罩染在 main.ts 的舞台层处理。
+   */
+  public refreshDecor(): void {
+    this.decorLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    if (!this.decorManager) return;
+
+    for (const slot of this.decorManager.getSlots()) {
+      const variantId = this.decorManager.getSelectedVariantId(slot.id);
+      const url = DECOR_SPRITE_URLS[variantId];
+      if (!url) continue; // 默认款式沿用底图烘焙家具
+      const placement =
+        DECOR_VARIANT_PLACEMENT_OVERRIDES[variantId] ?? DECOR_SLOT_PLACEMENTS[slot.id];
+      if (!placement) continue;
+
+      const sprite = new Sprite(Texture.from(url));
+      sprite.anchor.set(placement.anchorX ?? 0.5, placement.anchorY ?? 0.5);
+      sprite.position.set(placement.x, placement.y);
+      sprite.width = placement.width; // 高度按比例自适应
+      this.decorLayer.addChild(sprite);
+    }
   }
 
   public getCatComponent(): CatComponent {

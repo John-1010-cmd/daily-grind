@@ -350,6 +350,7 @@ async function bootstrap() {
           const next = decorManager.cycleVariant(decorSlot.id);
           if (next) {
             toastManager.show(`🛋️【${decorSlot.name}】换上了【${next.name}】`);
+            greyboxScene.refreshDecor();
           }
           runAchievementCheck();
           return;
@@ -366,6 +367,7 @@ async function bootstrap() {
   );
 
   greyboxScene.setCustomerManager(customerManager);
+  greyboxScene.setDecorManager(decorManager);
 
   // M3 店员视觉：吧台内侧的简约小人（成品立绘量产前的小幅灰盒，T3.8 替换）
   const staffGraphics = new Graphics();
@@ -429,8 +431,14 @@ async function bootstrap() {
     }
   );
 
+  const decorModal = new DecorModal(uiRoot, saveManager, ledger, decorManager, fundManager, buildFundMetrics, toastManager);
+  decorModal.onDecorChanged = () => {
+    greyboxScene.refreshDecor();
+    applyThemeTint();
+  };
+
   hud.setM3Modals({
-    decorModal: new DecorModal(uiRoot, saveManager, ledger, decorManager, fundManager, buildFundMetrics, toastManager),
+    decorModal,
     fundModal: new FundModal(uiRoot, saveManager, ledger, fundManager, buildFundMetrics, toastManager),
     staffModal: new StaffModal(uiRoot, saveManager, staffMember, toastManager),
     handbookModal: new HandbookModal(uiRoot, saveManager, regularManager, decorManager, achievementManager)

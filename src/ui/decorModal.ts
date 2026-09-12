@@ -19,6 +19,8 @@ export class DecorModal {
   private toast: ToastManager;
   private isOpen = false;
   private modalEl: HTMLElement | null = null;
+  /** 款式/主题变更后通知场景重绘覆盖层（main.ts 注入） */
+  public onDecorChanged: (() => void) | null = null;
 
   constructor(
     root: HTMLElement,
@@ -167,6 +169,7 @@ export class DecorModal {
             this.toast.show(res.reason ?? '暂时无法购买');
           }
         }
+        this.onDecorChanged?.();
         this.render();
       });
     });
@@ -188,6 +191,7 @@ export class DecorModal {
             this.toast.show(res.reason ?? '暂时无法购买');
           }
         }
+        this.onDecorChanged?.();
         this.render();
       });
     });
