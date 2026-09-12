@@ -1,4 +1,5 @@
 import {
+  AUDIO_CONFIG,
   INITIAL_INVENTORY,
   PLAYER_CONFIG,
   SAVE_CONFIG
@@ -32,6 +33,10 @@ export interface SaveStateV2 {
   placedFurniture: string[];
   settings: {
     debugNavOverlay: boolean;
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    muted: boolean;
   };
   // ---- M3 新增 ----
   decor: {
@@ -78,7 +83,11 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
   recipeMastery: { espresso: 0 },
   placedFurniture: ['default_chair', 'default_table'],
   settings: {
-    debugNavOverlay: false
+    debugNavOverlay: false,
+    masterVolume: AUDIO_CONFIG.DEFAULT_MASTER_VOLUME,
+    musicVolume: AUDIO_CONFIG.DEFAULT_MUSIC_VOLUME,
+    sfxVolume: AUDIO_CONFIG.DEFAULT_SFX_VOLUME,
+    muted: false
   },
   decor: {
     slotVariants: {},
@@ -299,14 +308,26 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
   }
 
   // Validate settings
-  const settings = {
-    debugNavOverlay: false
+  const settings: SaveStateV2['settings'] = {
+    debugNavOverlay: false,
+    masterVolume: AUDIO_CONFIG.DEFAULT_MASTER_VOLUME,
+    musicVolume: AUDIO_CONFIG.DEFAULT_MUSIC_VOLUME,
+    sfxVolume: AUDIO_CONFIG.DEFAULT_SFX_VOLUME,
+    muted: false
   };
   if (obj.settings && typeof obj.settings === 'object') {
     const rawSettings = obj.settings as Record<string, unknown>;
     if (typeof rawSettings.debugNavOverlay === 'boolean') {
       settings.debugNavOverlay = rawSettings.debugNavOverlay;
     }
+    const volumeKeys = ['masterVolume', 'musicVolume', 'sfxVolume'] as const;
+    for (const key of volumeKeys) {
+      const value = rawSettings[key];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        settings[key] = Math.max(0, Math.min(1, value));
+      }
+    }
+    if (typeof rawSettings.muted === 'boolean') settings.muted = rawSettings.muted;
   }
 
   // ---- M3 新增字段（宽松清洗：非法则回落默认）----

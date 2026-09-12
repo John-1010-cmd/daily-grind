@@ -11,6 +11,7 @@ import {
   STAFF_CONFIG
 } from './config';
 import { AchievementManager } from './achievements';
+import { AudioManager } from './audio';
 import { Customer, CustomerManager } from './customer';
 import { DecorManager } from './decor';
 import { EconomyLedger } from './economy';
@@ -44,6 +45,7 @@ async function bootstrap() {
   saveManager.setupLifecycleHooks(window);
 
   const initialSave = saveManager.getState();
+  const audioManager = new AudioManager(initialSave.settings);
 
   // 2. Inventory & Economy Ledger (T1.4 & T1.6)
   const inventory = new InventoryManager(initialSave.inventory);
@@ -304,6 +306,7 @@ async function bootstrap() {
 
       onCatInteract: (cat) => {
         const res = cat.pet();
+        audioManager.playSfx('purr');
         toastManager.show(`🐱【橘猫】${res.text}`);
       },
 
@@ -321,6 +324,7 @@ async function bootstrap() {
             const nextOrder = waitingBrew[0];
             orderStateMachine.claimTask(nextOrder.id, 'BREW', 'player');
             orderStateMachine.startTask(nextOrder.id, 'BREW', 'player');
+            audioManager.playPreparationSequence();
             toastManager.show(`☕ 开始制作【${nextOrder.recipe.name}】...`);
             return;
           }
@@ -413,7 +417,8 @@ async function bootstrap() {
         gameClock.alignWithWallClock();
         syncInventoryToSave();
       }
-    }
+    },
+    audioManager
   );
 
   const decorModal = new DecorModal(uiRoot, saveManager, ledger, decorManager, fundManager, buildFundMetrics, toastManager);
@@ -433,6 +438,7 @@ async function bootstrap() {
 
   // 10. Pointer Event Routing (T0.2 & T0.5)
   viewportContainer.addEventListener('pointerdown', (e: PointerEvent) => {
+    void audioManager.unlock();
     const target = e.target as HTMLElement;
     if (target && target.closest('.interactive, .hud-btn, .hud-badge, .debug-btn, .modal-panel')) {
       return;
@@ -453,6 +459,7 @@ async function bootstrap() {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
+    void audioManager.unlock();
     if (e.key === 'F2') {
       const nextDebug = !greyboxScene.isDebug();
       greyboxScene.setDebugVisible(nextDebug);
@@ -504,6 +511,7 @@ async function bootstrap() {
     // Update order brewing progress
     const finishedBrews = orderStateMachine.tickBrewing(deltaSeconds);
     for (const b of finishedBrews) {
+      audioManager.playSfx('cup');
       toastManager.show(`✨【${b.recipe.name}】已萃取完成！请前往吧台取杯送餐。`);
     }
 

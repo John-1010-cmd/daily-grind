@@ -31,6 +31,7 @@ export class Hud {
   private ledger: EconomyLedger;
   private toast: ToastManager;
   private callbacks: HudCallbacks;
+  private audioManager: AudioManager;
 
   private goldValueEl!: HTMLElement;
   private periodIconEl!: HTMLElement;
@@ -49,7 +50,8 @@ export class Hud {
     inventory: InventoryManager,
     ledger: EconomyLedger,
     toast: ToastManager,
-    callbacks: HudCallbacks
+    callbacks: HudCallbacks,
+    audioManager: AudioManager
   ) {
     this.root = root;
     this.saveManager = saveManager;
@@ -57,12 +59,14 @@ export class Hud {
     this.ledger = ledger;
     this.toast = toast;
     this.callbacks = callbacks;
+    this.audioManager = audioManager;
     this.isDebugActive = saveManager.getState().settings.debugNavOverlay;
 
     this.settingsModal = new SettingsModal(
       this.root,
       this.saveManager,
       this.toast,
+      this.audioManager,
       () => {
         this.callbacks.onResetGame?.();
       }
@@ -214,3 +218,4 @@ export class Hud {
     this.supplyModal.open();
   }
 }
+import { AudioManager } from '../audio';

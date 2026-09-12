@@ -137,6 +137,30 @@ export const LIGHTING_CONFIG = {
   ]
 } as const;
 
+/** M4 音频混音与片段窗口；源文件与许可见 src/assets/audio/ATTRIBUTION.md。 */
+export const AUDIO_CONFIG = {
+  DEFAULT_MASTER_VOLUME: 0.72,
+  DEFAULT_MUSIC_VOLUME: 0.42,
+  DEFAULT_SFX_VOLUME: 0.82,
+  VOLUME_STEP: 0.05,
+  BGM_CROSSFADE_SECONDS: 1.8,
+  BGM_SCHEDULE_AHEAD_SECONDS: 2.5,
+  BGM_SCHEDULER_INTERVAL_MS: 500,
+  START_LATENCY_SECONDS: 0.025,
+  PREPARATION_SEQUENCE: [
+    { id: 'grinder', delayMs: 0 },
+    { id: 'extraction', delayMs: 1050 },
+    { id: 'steam', delayMs: 2150 }
+  ],
+  SFX_WINDOWS: {
+    grinder: { offsetSeconds: 0.25, durationSeconds: 1.4 },
+    extraction: { offsetSeconds: 5.0, durationSeconds: 2.2 },
+    steam: { offsetSeconds: 1.0, durationSeconds: 2.0 },
+    cup: { offsetSeconds: 0, durationSeconds: 0.7 },
+    purr: { offsetSeconds: 0.2, durationSeconds: 3.2 }
+  }
+} as const;
+
 export const SCENE_OBJECTS: readonly SceneObjectConfig[] = [
   {
     id: 'window',

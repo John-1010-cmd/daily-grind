@@ -1,3 +1,5 @@
+import { AudioManager } from '../audio';
+import { AUDIO_CONFIG } from '../config';
 import { SaveManager } from '../save';
 import { ToastManager } from './toast';
 
@@ -8,11 +10,19 @@ export class SettingsModal {
   private isOpen: boolean = false;
   private modalEl: HTMLElement | null = null;
   private onResetCallback?: () => void;
+  private audioManager: AudioManager;
 
-  constructor(root: HTMLElement, saveManager: SaveManager, toast: ToastManager, onReset?: () => void) {
+  constructor(
+    root: HTMLElement,
+    saveManager: SaveManager,
+    toast: ToastManager,
+    audioManager: AudioManager,
+    onReset?: () => void
+  ) {
     this.root = root;
     this.saveManager = saveManager;
     this.toast = toast;
+    this.audioManager = audioManager;
     this.onResetCallback = onReset;
   }
 
@@ -65,6 +75,22 @@ export class SettingsModal {
           </div>
 
           <div class="setting-row">
+            <div class="setting-label">声音</div>
+            <div class="audio-setting-grid">
+              <label for="audio-master">总音量 <output id="audio-master-value">${Math.round(state.settings.masterVolume * 100)}%</output></label>
+              <input id="audio-master" type="range" min="0" max="1" step="${AUDIO_CONFIG.VOLUME_STEP}" value="${state.settings.masterVolume}">
+              <label for="audio-music">背景音乐 <output id="audio-music-value">${Math.round(state.settings.musicVolume * 100)}%</output></label>
+              <input id="audio-music" type="range" min="0" max="1" step="${AUDIO_CONFIG.VOLUME_STEP}" value="${state.settings.musicVolume}">
+              <label for="audio-sfx">制作与互动音效 <output id="audio-sfx-value">${Math.round(state.settings.sfxVolume * 100)}%</output></label>
+              <input id="audio-sfx" type="range" min="0" max="1" step="${AUDIO_CONFIG.VOLUME_STEP}" value="${state.settings.sfxVolume}">
+            </div>
+            <button class="btn-action ${state.settings.muted ? 'btn-muted' : ''}" id="btn-toggle-mute">
+              ${state.settings.muted ? '🔇 已静音，点击恢复' : '🔊 一键静音'}
+            </button>
+            <div class="setting-desc">首次点击或按键后音乐才会开始；所有声音随时可关闭。</div>
+          </div>
+
+          <div class="setting-row">
             <div class="setting-label">存档 JSON 导出 / 导入</div>
             <div class="setting-desc">复制下方数据进行备份，或粘贴已有存档 JSON 后点击导入：</div>
             <textarea class="modal-textarea" id="save-json-area" placeholder="在此粘贴或查看存档 JSON...">${this.saveManager.exportJSON()}</textarea>
@@ -86,6 +112,28 @@ export class SettingsModal {
 
     // Event listeners
     backdrop.querySelector('#btn-close-settings')?.addEventListener('click', () => this.close());
+
+    const bindVolume = (inputId: string, outputId: string, key: 'masterVolume' | 'musicVolume' | 'sfxVolume') => {
+      const input = backdrop.querySelector(`#${inputId}`) as HTMLInputElement;
+      const output = backdrop.querySelector(`#${outputId}`) as HTMLOutputElement;
+      input.addEventListener('input', () => {
+        const value = Number(input.value);
+        output.value = `${Math.round(value * 100)}%`;
+        this.saveManager.updateState((draft) => { draft.settings[key] = value; });
+        this.audioManager.setSettings(this.saveManager.getState().settings);
+      });
+    };
+    bindVolume('audio-master', 'audio-master-value', 'masterVolume');
+    bindVolume('audio-music', 'audio-music-value', 'musicVolume');
+    bindVolume('audio-sfx', 'audio-sfx-value', 'sfxVolume');
+
+    backdrop.querySelector('#btn-toggle-mute')?.addEventListener('click', () => {
+      this.saveManager.updateState((draft) => { draft.settings.muted = !draft.settings.muted; });
+      this.audioManager.setSettings(this.saveManager.getState().settings);
+      this.toast.show(this.saveManager.getState().settings.muted ? '所有声音已静音' : '声音已恢复');
+      this.close();
+      this.open();
+    });
 
     backdrop.querySelector('#btn-copy-export')?.addEventListener('click', async () => {
       const jsonArea = backdrop.querySelector('#save-json-area') as HTMLTextAreaElement;
