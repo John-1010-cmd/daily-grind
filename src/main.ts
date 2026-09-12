@@ -21,6 +21,7 @@ import { OrderStateMachine } from './order';
 import { RegularManager } from './regulars';
 import { SaveManager } from './save';
 import { GreyboxScene } from './scene/greybox';
+import { CustomerCharacter } from './scene/customerCharacter';
 import { LightingSystem } from './scene/lighting';
 import { NavGraph } from './scene/nav';
 import { StaffMember } from './staff';
@@ -35,6 +36,7 @@ import {
   WorldOverlay
 } from './ui';
 import { regularPortraitUrl } from './ui/regularPortraits';
+import staffXiaoqingUrl from './assets/staff/staff_xiaoqing.png';
 
 async function bootstrap() {
   // 1. Storage & Save Manager
@@ -115,6 +117,7 @@ async function bootstrap() {
     onStoryUnlocked: (chapter) => {
       storyModalRef.current?.enqueue({
         portraitIcon: '🧑‍🎨',
+        portraitImage: staffXiaoqingUrl,
         speaker: '小晴',
         title: chapter.title,
         text: chapter.text
@@ -369,29 +372,11 @@ async function bootstrap() {
   greyboxScene.setCustomerManager(customerManager);
   greyboxScene.setDecorManager(decorManager);
 
-  // M3 店员视觉：吧台内侧的简约小人（成品立绘量产前的小幅灰盒，T3.8 替换）
-  const staffGraphics = new Graphics();
-  greyboxScene.container.addChild(staffGraphics);
-
-  const drawStaffFigure = (time: number) => {
-    staffGraphics.clear();
-    if (!staffMember.isHired()) return;
-    const anchor = STAFF_CONFIG.WORK_ANCHOR;
-    const bob = staffMember.isBusy() ? Math.sin(time * 8) * 2 : Math.sin(time * 2) * 0.8;
-    const x = anchor.x;
-    const y = anchor.y + bob;
-    // shadow
-    staffGraphics.ellipse(x, anchor.y + 18, 14, 4);
-    staffGraphics.fill({ color: 0x000000, alpha: 0.2 });
-    // body（米色围裙）
-    staffGraphics.roundRect(x - 10, y - 18, 20, 34, 6);
-    staffGraphics.fill(0xf3e5c8);
-    staffGraphics.stroke({ width: 1.5, color: 0x8c6239 });
-    // head
-    staffGraphics.circle(x, y - 26, 8);
-    staffGraphics.fill(0xf6d8ae);
-    staffGraphics.stroke({ width: 1.5, color: 0x8c6239 });
-  };
+  // M3 店员视觉：吧台内侧的小晴（T3.8 批次 F：路人部件 sprite + 米色围裙 tint）
+  const staffFigure = new CustomerCharacter(0xd9c39a);
+  staffFigure.setPosition(STAFF_CONFIG.WORK_ANCHOR.x, STAFF_CONFIG.WORK_ANCHOR.y - 4);
+  staffFigure.container.visible = false;
+  greyboxScene.container.addChild(staffFigure.container);
 
   // M3 主题色调覆盖层（T3.1 整店主题，位于场景之上、光照之下）
   const themeTintGraphics = new Graphics();
@@ -511,7 +496,10 @@ async function bootstrap() {
 
     // M3 店员自动干活
     staffMember.update(deltaSeconds);
-    drawStaffFigure(now / 1000);
+    staffFigure.container.visible = staffMember.isHired();
+    if (staffMember.isHired()) {
+      staffFigure.update(deltaSeconds, staffMember.isBusy(), 'left');
+    }
 
     // Update order brewing progress
     const finishedBrews = orderStateMachine.tickBrewing(deltaSeconds);

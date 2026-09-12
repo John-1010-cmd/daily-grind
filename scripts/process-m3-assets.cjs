@@ -162,12 +162,25 @@ async function processUi() {
   console.log('✓ paper-texture.webp');
 }
 
+async function processStaff() {
+  console.log('=== F. Staff avatar -> src/assets/staff ===');
+  const raw = await sharp('artwork/m3/staff-xiaoqing-v1.png').png().toBuffer();
+  const transparent = await removeWhiteBackground(raw);
+  await sharp(transparent)
+    .trim()
+    .resize({ width: 192, fit: 'inside' })
+    .png({ compressionLevel: 9 })
+    .toFile('src/assets/staff/staff_xiaoqing.png');
+  console.log('✓ staff_xiaoqing.png');
+}
+
 async function main() {
   await processDrinks();
   await processRegulars();
   await processPassenger();
   await processDecor();
   await processUi();
+  await processStaff();
 }
 
 main().catch((e) => {

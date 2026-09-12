@@ -1,4 +1,5 @@
 import { STAFF_CONFIG, STAFF_MEMBER_DEF, StaffDuty } from '../config';
+import staffXiaoqingUrl from '../assets/staff/staff_xiaoqing.png';
 import { SaveManager } from '../save';
 import { StaffMember } from '../staff';
 import { ToastManager } from './toast';
@@ -66,7 +67,7 @@ export class StaffModal {
       const canHire = this.staffMember.canHire();
       bodyHtml = `
         <div class="staff-hero">
-          <div class="staff-avatar">${STAFF_MEMBER_DEF.portraitIcon}</div>
+          <div class="staff-avatar"><img src="${staffXiaoqingUrl}" alt="${STAFF_MEMBER_DEF.name}" /></div>
           <div>
             <div style="font-weight:700;font-size:16px;">${STAFF_MEMBER_DEF.name} · ${STAFF_MEMBER_DEF.job}</div>
             <div style="font-size:13px;color:#8c6239;margin-top:4px;">${STAFF_MEMBER_DEF.description}</div>
@@ -112,7 +113,7 @@ export class StaffModal {
 
       bodyHtml = `
         <div class="staff-hero">
-          <div class="staff-avatar">${STAFF_MEMBER_DEF.portraitIcon}</div>
+          <div class="staff-avatar"><img src="${staffXiaoqingUrl}" alt="${STAFF_MEMBER_DEF.name}" /></div>
           <div>
             <div style="font-weight:700;font-size:16px;">${STAFF_MEMBER_DEF.name} 在岗中</div>
             <div style="font-size:13px;color:#8c6239;margin-top:4px;">
