@@ -138,3 +138,4 @@ src/assets/
 |---|---|---|---|---|
 | A 饮品图标 | 1 轮（3×3 图排 low 质量草图直过） | 8.5 / 9 / 9 | 一次过审，切割后 9 张 128px 透明图入库并接入配方/图鉴弹窗 | 无 |
 | B 常客头像 | 1 轮（单排 5 头像 low 质量直过） | 一次过审 | 5 头像与常客设定（林晚/老周/苏苏/阿凯/小雅）一一对应，切割为 192px 透明图，接入图鉴常客页签与剧情弹窗（StoryModal.portraitImage） | 无 |
+| C 路人部件 | 1 轮（单张 A-pose low 质量直过） | 构图 9 / 色彩 9 / 主题 9 | Q 版水彩路人（米白毛衣+浅灰裤，浅色底利于 tint），切 6 部件入库；新建 CustomerCharacter（复用 OwnerCharacter 动画结构），greybox 顾客渲染由 Graphics 矩形换成部件 sprite；换色 = body 用顾客色 tint、四肢 softenTint 柔化 | 换色为程序 tint 兜底（接受手部轻微串色） |

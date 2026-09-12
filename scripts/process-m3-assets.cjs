@@ -41,7 +41,7 @@ async function cutCells(sheetPath, cells, outDir, targetWidth) {
     const transparent = await removeWhiteBackground(extracted);
     await sharp(transparent)
       .trim()
-      .resize({ width: targetWidth, fit: 'inside' })
+      .resize({ width: cell.width || targetWidth, fit: 'inside' })
       .png({ compressionLevel: 9 })
       .toFile(path.join(outDir, cell.name));
     console.log(`✓ ${cell.name}`);
@@ -96,9 +96,24 @@ async function processRegulars() {
   await cutCells('artwork/m3/regulars-sheet-v1.png', cells, 'src/assets/regulars', 192);
 }
 
+async function processPassenger() {
+  console.log('=== C. Passenger A-pose -> src/assets/characters/passenger ===');
+  // passenger-raw 1024x1536，单角色 A-pose，按关节切 6 部件（尺寸对齐 owner 部件）
+  const parts = [
+    { name: 'passenger-head.png', region: { left: 253, top: 0, width: 383, height: 460 }, width: 44 },
+    { name: 'passenger-body.png', region: { left: 353, top: 438, width: 322, height: 468 }, width: 42 },
+    { name: 'passenger-arm-l.png', region: { left: 138, top: 492, width: 238, height: 415 }, width: 24 },
+    { name: 'passenger-arm-r.png', region: { left: 652, top: 492, width: 238, height: 415 }, width: 24 },
+    { name: 'passenger-leg-l.png', region: { left: 353, top: 860, width: 184, height: 614 }, width: 22 },
+    { name: 'passenger-leg-r.png', region: { left: 499, top: 860, width: 184, height: 614 }, width: 22 }
+  ];
+  await cutCells('artwork/m3/passenger-raw.png', parts, 'src/assets/characters/passenger', 44);
+}
+
 async function main() {
   await processDrinks();
   await processRegulars();
+  await processPassenger();
 }
 
 main().catch((e) => {

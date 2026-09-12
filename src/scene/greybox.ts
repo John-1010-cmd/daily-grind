@@ -19,6 +19,7 @@ import {
 } from '../config';
 import { Customer, CustomerManager } from '../customer';
 import { CatComponent } from './catComponent';
+import { CustomerCharacter } from './customerCharacter';
 import {
   NavGraph,
   clampToWalkable,
@@ -46,6 +47,7 @@ export class GreyboxScene {
   private ownerCharacter: OwnerCharacter;
   private catComponent: CatComponent;
   private customersGraphic: Graphics;
+  private customerSprites: Map<string, CustomerCharacter> = new Map();
   private playerPos: Point;
   private targetPath: Point[] = [];
   private pendingInteractObject: SceneObjectConfig | null = null;
@@ -125,36 +127,31 @@ export class GreyboxScene {
     this.backgroundLayer.addChild(bgSprite);
   }
 
-  private drawCustomers(): void {
+  private drawCustomers(deltaSeconds: number): void {
     this.customersGraphic.clear();
     if (!this.customerManager) return;
 
-    for (const c of this.customerManager.getCustomers()) {
-      if (c.state === 'LEFT') continue;
+    // 顾客本体：水彩部件 sprite（T3.8 批次 C），按顾客色 tint 换色
+    const active = this.customerManager.getCustomers().filter((c) => c.state !== 'LEFT');
+    const activeIds = new Set(active.map((c) => c.id));
+    for (const [id, sprite] of this.customerSprites) {
+      if (!activeIds.has(id)) {
+        this.customersLayer.removeChild(sprite.container);
+        sprite.container.destroy({ children: true });
+        this.customerSprites.delete(id);
+      }
+    }
 
-      const cw = 24;
-      const ch = 36;
-      const cx = c.pos.x;
-      const cy = c.pos.y;
-
-      // Shadow
-      this.customersGraphic.ellipse(cx, cy + ch / 2 + 2, cw / 2 + 3, 5);
-      this.customersGraphic.fill({ color: 0x000000, alpha: 0.22 });
-
-      // Body
-      this.customersGraphic.roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 6);
-      this.customersGraphic.fill(c.color);
-      this.customersGraphic.stroke({ width: 1.5, color: 0x2d3436 });
-
-      // Head
-      this.customersGraphic.circle(cx, cy - ch / 2 - 8, 9);
-      this.customersGraphic.fill(0xf6d8ae);
-      this.customersGraphic.stroke({ width: 1.5, color: 0x2d3436 });
-
-      // Eye
-      const eyeX = c.facing === 'right' ? cx + 3 : cx - 3;
-      this.customersGraphic.circle(eyeX, cy - ch / 2 - 8, 1.8);
-      this.customersGraphic.fill(0x2d3436);
+    for (const c of active) {
+      let sprite = this.customerSprites.get(c.id);
+      if (!sprite) {
+        sprite = new CustomerCharacter(c.color);
+        this.customerSprites.set(c.id, sprite);
+        this.customersLayer.addChild(sprite.container);
+      }
+      sprite.setPosition(c.pos.x, c.pos.y - 4);
+      const isMoving = c.state === 'ENTERING' || c.state === 'LEAVING';
+      sprite.update(deltaSeconds, isMoving, c.facing);
 
       // If enjoying drink, show little coffee cup on table
       if (c.state === 'ENJOYING_DRINK' || c.state === 'WAITING_TO_PAY') {
@@ -403,7 +400,7 @@ export class GreyboxScene {
   }
 
   public update(deltaSeconds: number): void {
-    this.drawCustomers();
+    this.drawCustomers(deltaSeconds);
     this.catComponent.update(deltaSeconds);
 
     if (this.clickFeedbackTime > 0) {
