@@ -1,4 +1,5 @@
 import {
+  INITIAL_INVENTORY,
   PLAYER_CONFIG,
   SAVE_CONFIG
 } from '../config';
@@ -14,6 +15,7 @@ export interface SaveStateV1 {
   lastSavedAt: number;
   inventory: Record<string, number>;
   unlockedRecipes: string[];
+  recipeMastery: Record<string, number>;
   placedFurniture: string[];
   settings: {
     debugNavOverlay: boolean;
@@ -31,8 +33,9 @@ export const DEFAULT_SAVE_STATE: SaveStateV1 = {
   },
   activePlayTime: 0,
   lastSavedAt: Date.now(),
-  inventory: {},
+  inventory: { ...INITIAL_INVENTORY },
   unlockedRecipes: ['espresso'],
+  recipeMastery: { espresso: 0 },
   placedFurniture: ['default_chair', 'default_table'],
   settings: {
     debugNavOverlay: false
@@ -182,6 +185,17 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     errors.push('unlockedRecipes 必须为数组');
   }
 
+  // Validate recipeMastery
+  const recipeMastery: Record<string, number> = {};
+  if (obj.recipeMastery && typeof obj.recipeMastery === 'object' && !Array.isArray(obj.recipeMastery)) {
+    const rawMastery = obj.recipeMastery as Record<string, unknown>;
+    for (const [key, val] of Object.entries(rawMastery)) {
+      if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+        recipeMastery[key] = Math.floor(val);
+      }
+    }
+  }
+
   // Validate placedFurniture (filter out invalid IDs)
   const validFurnitureSet = new Set<string>(SAVE_CONFIG.VALID_FURNITURE_IDS);
   const placedFurniture: string[] = [];
@@ -218,6 +232,7 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     lastSavedAt,
     inventory,
     unlockedRecipes: unlockedRecipes.length > 0 ? unlockedRecipes : [...DEFAULT_SAVE_STATE.unlockedRecipes],
+    recipeMastery,
     placedFurniture: placedFurniture.length > 0 ? placedFurniture : [...DEFAULT_SAVE_STATE.placedFurniture],
     settings
   };

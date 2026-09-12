@@ -1,6 +1,10 @@
 import { TimePeriodConfig, UI_CONFIG } from '../config';
+import { EconomyLedger } from '../economy';
+import { InventoryManager } from '../inventory';
 import { SaveManager } from '../save';
+import { RecipesModal } from './recipesModal';
 import { SettingsModal } from './settings';
+import { SupplyModal } from './supplyModal';
 import { ToastManager } from './toast';
 
 export interface HudCallbacks {
@@ -11,6 +15,8 @@ export interface HudCallbacks {
 export class Hud {
   private root: HTMLElement;
   private saveManager: SaveManager;
+  private inventory: InventoryManager;
+  private ledger: EconomyLedger;
   private toast: ToastManager;
   private callbacks: HudCallbacks;
 
@@ -18,6 +24,8 @@ export class Hud {
   private periodIconEl!: HTMLElement;
   private periodLabelEl!: HTMLElement;
   private settingsModal: SettingsModal;
+  private recipesModal: RecipesModal;
+  private supplyModal: SupplyModal;
   private debugBtnEl!: HTMLElement;
 
   private isDebugActive: boolean = false;
@@ -25,11 +33,15 @@ export class Hud {
   constructor(
     root: HTMLElement,
     saveManager: SaveManager,
+    inventory: InventoryManager,
+    ledger: EconomyLedger,
     toast: ToastManager,
     callbacks: HudCallbacks
   ) {
     this.root = root;
     this.saveManager = saveManager;
+    this.inventory = inventory;
+    this.ledger = ledger;
     this.toast = toast;
     this.callbacks = callbacks;
     this.isDebugActive = saveManager.getState().settings.debugNavOverlay;
@@ -41,6 +53,21 @@ export class Hud {
       () => {
         this.callbacks.onResetGame?.();
       }
+    );
+
+    this.recipesModal = new RecipesModal(
+      this.root,
+      this.saveManager,
+      this.ledger,
+      this.toast
+    );
+
+    this.supplyModal = new SupplyModal(
+      this.root,
+      this.inventory,
+      this.ledger,
+      this.saveManager,
+      this.toast
     );
 
     this.render();
@@ -77,8 +104,9 @@ export class Hud {
     hudRight.className = 'hud-right';
 
     for (const btnDef of UI_CONFIG.TOP_NAV_BUTTONS) {
+      const isEnabled = Boolean(btnDef.enabledInM1);
       const btn = document.createElement('button');
-      btn.className = `hud-btn ${btnDef.enabledInM0 ? '' : 'disabled'}`;
+      btn.className = `hud-btn ${isEnabled ? '' : 'disabled'}`;
       btn.title = btnDef.label;
       btn.innerHTML = `<span class="btn-icon">${btnDef.icon}</span><span>${btnDef.label}</span>`;
 
@@ -87,6 +115,10 @@ export class Hud {
         e.stopPropagation();
         if (btnDef.id === 'settings') {
           this.settingsModal.open();
+        } else if (btnDef.id === 'recipes') {
+          this.recipesModal.open();
+        } else if (btnDef.id === 'supply') {
+          this.supplyModal.open();
         } else {
           this.toast.show(`【${btnDef.label}】功能将在后续里程碑逐步解锁`);
         }
@@ -139,5 +171,13 @@ export class Hud {
 
   public openSettings(): void {
     this.settingsModal.open();
+  }
+
+  public openRecipes(): void {
+    this.recipesModal.open();
+  }
+
+  public openSupply(): void {
+    this.supplyModal.open();
   }
 }

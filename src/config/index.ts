@@ -307,24 +307,255 @@ export const NAV_EDGES: readonly NavEdge[] = [
   { from: 'table2_front', to: 'right_aisle_back' }
 ] as const;
 
+export interface IngredientDef {
+  id: string;
+  name: string;
+  unitPrice: number;
+  icon: string;
+}
+
+export interface RecipeDef {
+  id: string;
+  name: string;
+  lineId: 'espresso' | 'tea' | 'bakery';
+  lineName: string;
+  ingredients: Record<string, number>;
+  price: number;
+  brewTimeSeconds: number;
+  unlockCost: number;
+  prerequisiteRecipeId?: string;
+  prerequisiteMasteryCount?: number;
+}
+
+export interface TableSeatDef {
+  id: string;
+  tableId: string;
+  name: string;
+  seatPos: Point;
+  interactPoint: Point;
+}
+
+export const INGREDIENT_DEFS: readonly IngredientDef[] = [
+  { id: 'coffee_beans', name: '优质咖啡豆', unitPrice: 3, icon: '🫘' },
+  { id: 'milk', name: '鲜牛奶', unitPrice: 2, icon: '🥛' },
+  { id: 'tea_leaves', name: '精选茶叶', unitPrice: 3, icon: '🍃' },
+  { id: 'syrup', name: '风味糖浆', unitPrice: 2, icon: '🍯' },
+  { id: 'baking_flour', name: '烘焙粉料', unitPrice: 3, icon: '🌾' },
+  { id: 'fruits', name: '新鲜水果', unitPrice: 4, icon: '🍑' }
+] as const;
+
+export const INITIAL_INVENTORY: Record<string, number> = {
+  coffee_beans: 16,
+  milk: 10,
+  tea_leaves: 8,
+  syrup: 6,
+  baking_flour: 6,
+  fruits: 4
+};
+
+export const RECIPE_DEFS: readonly RecipeDef[] = [
+  // 1. 意式咖啡线
+  {
+    id: 'espresso',
+    name: '意式浓缩',
+    lineId: 'espresso',
+    lineName: '意式咖啡',
+    ingredients: { coffee_beans: 1 },
+    price: 15,
+    brewTimeSeconds: 2.5,
+    unlockCost: 0
+  },
+  {
+    id: 'americano',
+    name: '美式咖啡',
+    lineId: 'espresso',
+    lineName: '意式咖啡',
+    ingredients: { coffee_beans: 1 },
+    price: 20,
+    brewTimeSeconds: 3.0,
+    unlockCost: 50,
+    prerequisiteRecipeId: 'espresso',
+    prerequisiteMasteryCount: 2
+  },
+  {
+    id: 'latte',
+    name: '经典拿铁',
+    lineId: 'espresso',
+    lineName: '意式咖啡',
+    ingredients: { coffee_beans: 1, milk: 1 },
+    price: 28,
+    brewTimeSeconds: 3.5,
+    unlockCost: 100,
+    prerequisiteRecipeId: 'americano',
+    prerequisiteMasteryCount: 2
+  },
+  {
+    id: 'cappuccino',
+    name: '卡布奇诺',
+    lineId: 'espresso',
+    lineName: '意式咖啡',
+    ingredients: { coffee_beans: 1, milk: 2 },
+    price: 32,
+    brewTimeSeconds: 4.0,
+    unlockCost: 160,
+    prerequisiteRecipeId: 'latte',
+    prerequisiteMasteryCount: 2
+  },
+
+  // 2. 茶饮特调线
+  {
+    id: 'jasmine_tea',
+    name: '茉莉清茶',
+    lineId: 'tea',
+    lineName: '茶饮特调',
+    ingredients: { tea_leaves: 1 },
+    price: 18,
+    brewTimeSeconds: 2.8,
+    unlockCost: 80 // 第二线首款，80金币可在15分钟单次会话内达成
+  },
+  {
+    id: 'matcha_latte',
+    name: '抹茶拿铁',
+    lineId: 'tea',
+    lineName: '茶饮特调',
+    ingredients: { tea_leaves: 1, milk: 1 },
+    price: 30,
+    brewTimeSeconds: 3.8,
+    unlockCost: 140,
+    prerequisiteRecipeId: 'jasmine_tea',
+    prerequisiteMasteryCount: 2
+  },
+  {
+    id: 'peach_oolong',
+    name: '蜜桃乌龙',
+    lineId: 'tea',
+    lineName: '茶饮特调',
+    ingredients: { tea_leaves: 1, fruits: 1, syrup: 1 },
+    price: 36,
+    brewTimeSeconds: 4.2,
+    unlockCost: 200,
+    prerequisiteRecipeId: 'matcha_latte',
+    prerequisiteMasteryCount: 2
+  },
+
+  // 3. 甜点烘焙线
+  {
+    id: 'croissant',
+    name: '牛角可颂',
+    lineId: 'bakery',
+    lineName: '甜点烘焙',
+    ingredients: { baking_flour: 1, milk: 1 },
+    price: 24,
+    brewTimeSeconds: 3.2,
+    unlockCost: 120
+  },
+  {
+    id: 'tiramisu',
+    name: '经典提拉米苏',
+    lineId: 'bakery',
+    lineName: '甜点烘焙',
+    ingredients: { baking_flour: 1, coffee_beans: 1, milk: 1 },
+    price: 38,
+    brewTimeSeconds: 4.5,
+    unlockCost: 220,
+    prerequisiteRecipeId: 'croissant',
+    prerequisiteMasteryCount: 2
+  }
+] as const;
+
+export const SUPPLY_BATCH_DISCOUNTS = [
+  { amount: 10, discountRate: 1.0, label: '标准包 (10份)' },
+  { amount: 30, discountRate: 0.9, label: '特惠箱 (30份, 9折)' },
+  { amount: 50, discountRate: 0.8, label: '批发装 (50份, 8折)' }
+] as const;
+
+export const EMERGENCY_PACKAGE_CONFIG = {
+  MIN_TRIGGER_GOLD: 20,
+  ITEMS: {
+    coffee_beans: 8,
+    milk: 6,
+    tea_leaves: 4
+  }
+} as const;
+
+export const TABLE_SEATS: readonly TableSeatDef[] = [
+  {
+    id: 'seat_table_1',
+    tableId: 'table_1',
+    name: '1号桌',
+    seatPos: { x: 1150, y: 710 },
+    interactPoint: { x: 1060, y: 710 }
+  },
+  {
+    id: 'seat_table_2',
+    tableId: 'table_2',
+    name: '2号桌',
+    seatPos: { x: 1050, y: 620 },
+    interactPoint: { x: 940, y: 660 }
+  },
+  {
+    id: 'seat_table_3',
+    tableId: 'table_3',
+    name: '3号桌',
+    seatPos: { x: 620, y: 500 },
+    interactPoint: { x: 570, y: 570 }
+  },
+  {
+    id: 'seat_table_4',
+    tableId: 'table_4',
+    name: '4号桌',
+    seatPos: { x: 300, y: 670 },
+    interactPoint: { x: 620, y: 620 }
+  }
+] as const;
+
+export const CUSTOMER_CONFIG = {
+  SPAWN_INTERVAL_MIN: 10,
+  SPAWN_INTERVAL_MAX: 20,
+  MAX_ACTIVE_CUSTOMERS: 4,
+  PATIENCE_SECONDS: 90,
+  EAT_DURATION_SECONDS: 6,
+  WALK_SPEED: 180,
+  SPAWN_POS: { x: 520, y: 480 },
+  EXIT_POS: { x: 520, y: 550 }
+} as const;
+
+export const SESSION_RELEASE_CONDITIONS = {
+  TARGET_ORDERS_IN_15_MIN: 8,
+  LINE2_FIRST_RECIPE_ID: 'jasmine_tea',
+  LINE2_FIRST_RECIPE_COST: 80,
+  CUSTOMER_AVG_WAIT_SECONDS: 60,
+  MAX_IDLE_TIME_RATIO: 0.40
+} as const;
+
 export const SAVE_CONFIG = {
   STORAGE_KEY: 'daily_grind_save_v1',
   CURRENT_VERSION: 1,
   INITIAL_GOLD: 100,
   AUTOSAVE_THROTTLE_MS: 1000,
-  VALID_RECIPE_IDS: ['espresso', 'latte', 'cappuccino'] as const,
+  VALID_RECIPE_IDS: [
+    'espresso',
+    'americano',
+    'latte',
+    'cappuccino',
+    'jasmine_tea',
+    'matcha_latte',
+    'peach_oolong',
+    'croissant',
+    'tiramisu'
+  ] as const,
   VALID_FURNITURE_IDS: ['default_chair', 'default_table', 'plant_monstera'] as const
 } as const;
 
 export const UI_CONFIG = {
   TOAST_DURATION_MS: 2600,
   TOP_NAV_BUTTONS: [
-    { id: 'recipes', label: '配方', icon: '📖', enabledInM0: false },
-    { id: 'supply', label: '进货', icon: '📦', enabledInM0: false },
-    { id: 'decor', label: '装修', icon: '🛋️', enabledInM0: false },
-    { id: 'handbook', label: '图鉴', icon: '📕', enabledInM0: false },
-    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false },
-    { id: 'fund', label: '梦想基金', icon: '🏺', enabledInM0: false },
-    { id: 'settings', label: '设置', icon: '⚙️', enabledInM0: true }
+    { id: 'recipes', label: '配方', icon: '📖', enabledInM0: false, enabledInM1: true },
+    { id: 'supply', label: '进货', icon: '📦', enabledInM0: false, enabledInM1: true },
+    { id: 'decor', label: '装修', icon: '🛋️', enabledInM0: false, enabledInM1: false },
+    { id: 'handbook', label: '图鉴', icon: '📕', enabledInM0: false, enabledInM1: false },
+    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false, enabledInM1: false },
+    { id: 'fund', label: '梦想基金', icon: '🏺', enabledInM0: false, enabledInM1: false },
+    { id: 'settings', label: '设置', icon: '⚙️', enabledInM0: true, enabledInM1: true }
   ]
 } as const;

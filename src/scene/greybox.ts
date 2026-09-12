@@ -14,6 +14,7 @@ import {
   SceneObjectConfig,
   WALKABLE_ZONES
 } from '../config';
+import { Customer, CustomerManager } from '../customer';
 import {
   NavGraph,
   clampToWalkable,
@@ -24,6 +25,7 @@ import {
 
 export interface GreyboxCallbacks {
   onObjectInteract: (obj: SceneObjectConfig) => void;
+  onCustomerInteract?: (customer: Customer) => void;
   onPositionChanged: (pos: Point) => void;
 }
 
@@ -31,19 +33,23 @@ export class GreyboxScene {
   public readonly container: Container;
   private backgroundLayer: Container;
   private objectsLayer: Container;
+  private customersLayer: Container;
   private playerLayer: Container;
   private debugLayer: Container;
 
   private playerGraphic: Graphics;
+  private customersGraphic: Graphics;
   private playerPos: Point;
   private targetPath: Point[] = [];
   private pendingInteractObject: SceneObjectConfig | null = null;
+  private pendingCustomer: Customer | null = null;
   private facing: 'left' | 'right' = 'right';
 
   private navGraph: NavGraph;
   private callbacks: GreyboxCallbacks;
   private keysPressed: Set<string> = new Set();
   private isDebugVisible: boolean = false;
+  private customerManager: CustomerManager | null = null;
 
   private clickFeedbackGraphic: Graphics;
   private clickFeedbackTime: number = 0;
@@ -63,16 +69,21 @@ export class GreyboxScene {
 
     this.backgroundLayer = new Container();
     this.objectsLayer = new Container();
+    this.customersLayer = new Container();
     this.playerLayer = new Container();
     this.debugLayer = new Container();
 
     this.container.addChild(this.backgroundLayer);
     this.container.addChild(this.objectsLayer);
+    this.container.addChild(this.customersLayer);
     this.container.addChild(this.playerLayer);
     this.container.addChild(this.debugLayer);
 
     this.playerGraphic = new Graphics();
     this.playerLayer.addChild(this.playerGraphic);
+
+    this.customersGraphic = new Graphics();
+    this.customersLayer.addChild(this.customersGraphic);
 
     this.clickFeedbackGraphic = new Graphics();
     this.container.addChild(this.clickFeedbackGraphic);
@@ -81,6 +92,10 @@ export class GreyboxScene {
     this.buildObjects();
     this.drawPlayer();
     this.updateDebugOverlay();
+  }
+
+  public setCustomerManager(mgr: CustomerManager): void {
+    this.customerManager = mgr;
   }
 
   private buildEnvironment(): void {
@@ -223,6 +238,51 @@ export class GreyboxScene {
     this.playerGraphic.y = this.playerPos.y;
   }
 
+  private drawCustomers(): void {
+    this.customersGraphic.clear();
+    if (!this.customerManager) return;
+
+    for (const c of this.customerManager.getCustomers()) {
+      if (c.state === 'LEFT') continue;
+
+      const cw = 24;
+      const ch = 36;
+      const cx = c.pos.x;
+      const cy = c.pos.y;
+
+      // Shadow
+      this.customersGraphic.ellipse(cx, cy + ch / 2 + 2, cw / 2 + 3, 5);
+      this.customersGraphic.fill({ color: 0x000000, alpha: 0.22 });
+
+      // Body
+      this.customersGraphic.roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 6);
+      this.customersGraphic.fill(c.color);
+      this.customersGraphic.stroke({ width: 1.5, color: 0x2d3436 });
+
+      // Head
+      this.customersGraphic.circle(cx, cy - ch / 2 - 8, 9);
+      this.customersGraphic.fill(0xf6d8ae);
+      this.customersGraphic.stroke({ width: 1.5, color: 0x2d3436 });
+
+      // Eye
+      const eyeX = c.facing === 'right' ? cx + 3 : cx - 3;
+      this.customersGraphic.circle(eyeX, cy - ch / 2 - 8, 1.8);
+      this.customersGraphic.fill(0x2d3436);
+
+      // If enjoying drink, show little coffee cup on table
+      if (c.state === 'ENJOYING_DRINK' || c.state === 'WAITING_TO_PAY') {
+        const tableObj = SCENE_OBJECTS.find((o) => o.id === c.seat.tableId);
+        if (tableObj) {
+          const cupX = tableObj.x + tableObj.width / 2;
+          const cupY = tableObj.y + tableObj.height / 2;
+          this.customersGraphic.roundRect(cupX - 5, cupY - 5, 10, 10, 2);
+          this.customersGraphic.fill(0xffffff);
+          this.customersGraphic.stroke({ width: 1, color: 0x795548 });
+        }
+      }
+    }
+  }
+
   public setDebugVisible(visible: boolean): void {
     this.isDebugVisible = visible;
     this.updateDebugOverlay();
@@ -295,13 +355,57 @@ export class GreyboxScene {
     // Trigger visual click ripple
     this.showClickRipple(pt);
 
-    // Rule 1: Object prioritized over move
+    // Rule 1: Object / Customer prioritized over empty ground move
+    // 1A. Check if clicked directly on or near an active customer
+    if (this.customerManager) {
+      for (const c of this.customerManager.getCustomers()) {
+        if (c.state === 'LEFT' || c.state === 'LEAVING') continue;
+        if (distance(pt, c.pos) <= 45) {
+          this.pendingCustomer = c;
+          this.pendingInteractObject = null;
+          const d = distance(this.playerPos, c.seat.interactPoint);
+          if (d <= 36) {
+            this.targetPath = [];
+            this.callbacks.onCustomerInteract?.(c);
+            this.pendingCustomer = null;
+            this.updateDebugOverlay();
+            return;
+          }
+          this.targetPath = this.navGraph.route(this.playerPos, c.seat.interactPoint);
+          this.updateDebugOverlay();
+          return;
+        }
+      }
+    }
+
+    // 1B. Check if clicked on a scene object
     const hit = findHitObject(pt);
     if (hit) {
+      // If clicked on a table that currently has a customer, route to serve/checkout that customer
+      if (this.customerManager) {
+        const tableCustomer = this.customerManager.getCustomerByTable(hit.id);
+        if (tableCustomer) {
+          this.pendingCustomer = tableCustomer;
+          this.pendingInteractObject = null;
+          const d = distance(this.playerPos, tableCustomer.seat.interactPoint);
+          if (d <= 36) {
+            this.targetPath = [];
+            this.callbacks.onCustomerInteract?.(tableCustomer);
+            this.pendingCustomer = null;
+            this.updateDebugOverlay();
+            return;
+          }
+          this.targetPath = this.navGraph.route(this.playerPos, tableCustomer.seat.interactPoint);
+          this.updateDebugOverlay();
+          return;
+        }
+      }
+
       this.pendingInteractObject = hit;
+      this.pendingCustomer = null;
       const d = distance(this.playerPos, hit.interactPoint);
       // If already at interact point, trigger immediately
-      if (d <= 32) {
+      if (d <= 36) {
         this.targetPath = [];
         this.callbacks.onObjectInteract(hit);
         this.pendingInteractObject = null;
@@ -316,6 +420,7 @@ export class GreyboxScene {
 
     // Rule 2: Click on empty ground moves to position
     this.pendingInteractObject = null;
+    this.pendingCustomer = null;
     const targetPoint = clampToWalkable(pt);
     this.targetPath = this.navGraph.route(this.playerPos, targetPoint);
     this.updateDebugOverlay();
@@ -329,6 +434,7 @@ export class GreyboxScene {
       if (this.targetPath.length > 0) {
         this.targetPath = [];
         this.pendingInteractObject = null;
+        this.pendingCustomer = null;
         this.updateDebugOverlay();
       }
     }
@@ -348,6 +454,8 @@ export class GreyboxScene {
   }
 
   public update(deltaSeconds: number): void {
+    this.drawCustomers();
+
     if (this.clickFeedbackTime > 0) {
       this.clickFeedbackTime -= deltaSeconds;
       if (this.clickFeedbackTime <= 0) {
@@ -417,7 +525,10 @@ export class GreyboxScene {
 
         if (this.targetPath.length === 0) {
           // Reached final destination!
-          if (this.pendingInteractObject) {
+          if (this.pendingCustomer) {
+            this.callbacks.onCustomerInteract?.(this.pendingCustomer);
+            this.pendingCustomer = null;
+          } else if (this.pendingInteractObject) {
             this.callbacks.onObjectInteract(this.pendingInteractObject);
             this.pendingInteractObject = null;
           }
@@ -443,6 +554,8 @@ export class GreyboxScene {
   public setPlayerPosition(pos: Point): void {
     this.playerPos = { ...pos };
     this.targetPath = [];
+    this.pendingInteractObject = null;
+    this.pendingCustomer = null;
     this.drawPlayer();
     if (this.isDebugVisible) {
       this.updateDebugOverlay();
