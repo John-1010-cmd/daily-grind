@@ -109,6 +109,21 @@ export class InventoryManager {
     this.stock[ingredientId] = (this.stock[ingredientId] || 0) + count;
   }
 
+  /** 将可用库存对齐纯函数推进结果，同时保留现场订单的预占数量。 */
+  public reconcileAvailableStock(targetAvailable: Record<string, number>): void {
+    for (const def of INGREDIENT_DEFS) {
+      const id = def.id;
+      const currentAvailable = this.getAvailable(id);
+      const target = Math.max(0, Math.floor(targetAvailable[id] ?? 0));
+      const delta = target - currentAvailable;
+      if (delta > 0) {
+        this.stock[id] = (this.stock[id] ?? 0) + delta;
+      } else if (delta < 0) {
+        this.stock[id] = Math.max(this.reserved[id] ?? 0, (this.stock[id] ?? 0) + delta);
+      }
+    }
+  }
+
   /**
    * Check if emergency package condition is met (第 6 节)：
    * 1. Player's gold is insufficient to buy supplies (less than minimum trigger gold).

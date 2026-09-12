@@ -6,8 +6,10 @@ import {
   REGULAR_DEFS,
   SCREEN_CONFIG,
   SHOP_SCENES,
+  SHOP_SIMULATION_CONFIG,
   STAFF_CONFIG,
-  ShopId
+  ShopId,
+  StaffDuty
 } from './config';
 import { AchievementManager } from './achievements';
 import { AudioManager } from './audio';
@@ -23,7 +25,14 @@ import { SaveManager } from './save';
 import { GreyboxScene } from './scene/greybox';
 import { CustomerCharacter } from './scene/customerCharacter';
 import { LightingSystem } from './scene/lighting';
-import { BranchManager, createShopRuntime, ShopRuntime } from './shop';
+import {
+  advanceShop,
+  BranchManager,
+  createShopRuntime,
+  prepareShopSwitch,
+  ShopRuntime,
+  ShopSimulationState
+} from './shop';
 import { StaffMember } from './staff';
 import {
   DecorModal,
@@ -98,6 +107,10 @@ async function bootstrap() {
   const achievementManager = new AchievementManager(saveManager, ledger);
   const branchManager = new BranchManager(saveManager, ledger, achievementManager);
   const catInteractionManager = new CatInteractionManager(saveManager, ledger);
+  const simulationStates: Record<ShopId, ShopSimulationState> = {
+    main: structuredClone(initialSave.world.shops.main.simulation),
+    seaside: structuredClone(initialSave.world.shops.seaside.simulation)
+  };
 
   const toastManagerRef: { current: ToastManager | null } = { current: null };
   const storyModalRef: { current: StoryModal | null } = { current: null };
@@ -457,12 +470,47 @@ async function bootstrap() {
     applyThemeTint();
   };
 
+  const switchActiveShop = (targetShopId: ShopId) => {
+    if (targetShopId === 'seaside' && !saveManager.getState().world.shops.seaside.unlocked) {
+      return { ok: false, reason: '海风分店还在地图上慢慢准备中' };
+    }
+    const check = prepareShopSwitch(
+      activeShopId,
+      targetShopId,
+      orderStateMachine,
+      staffMember.isHired()
+    );
+    if (!check.ok) return check;
+
+    activeShopId = targetShopId;
+    activeRuntime = shopRuntimes[activeShopId];
+    navGraph = activeRuntime.navGraph;
+    orderStateMachine = activeRuntime.orderStateMachine;
+    customerManager = activeRuntime.customerManager;
+    decorManager = activeRuntime.decorManager;
+    greyboxScene.setSceneDefinition(activeRuntime.scene);
+    greyboxScene.setCustomerManager(customerManager);
+    greyboxScene.setDecorManager(decorManager);
+    decorModal.setDecorManager(decorManager);
+    applyThemeTint();
+    saveManager.updateState((draft) => {
+      draft.world.activeShopId = activeShopId;
+    });
+    return check;
+  };
+
   hud.setM3Modals({
     decorModal,
     fundModal: new FundModal(uiRoot, saveManager, ledger, fundManager, buildFundMetrics, toastManager),
     staffModal: new StaffModal(uiRoot, saveManager, staffMember, toastManager),
     handbookModal: new HandbookModal(uiRoot, saveManager, regularManager, decorManager, achievementManager),
-    mapModal: new MapModal(uiRoot, branchManager, toastManager)
+    mapModal: new MapModal(
+      uiRoot,
+      branchManager,
+      toastManager,
+      () => activeShopId,
+      switchActiveShop
+    )
   });
   hud.getRecipesModal().setEquipmentManager(equipmentManager);
   hud.getSupplyModal().setFundCapacityProvider(() => fundManager.hasAvailableCapacity(buildFundMetrics()));
@@ -509,6 +557,41 @@ async function bootstrap() {
   let lastTime = performance.now();
   let saveSyncTimer = 0;
 
+  const advanceBackgroundShop = (shopId: ShopId, elapsedMs: number): void => {
+    if (shopId === activeShopId) return;
+    if (shopId === 'seaside' && !saveManager.getState().world.shops.seaside.unlocked) return;
+    const savedState = saveManager.getState();
+    const duties: readonly StaffDuty[] = shopId === 'main'
+      ? savedState.staff.hired
+        ? savedState.staff.duties.filter((duty): duty is StaffDuty =>
+            (SHOP_SIMULATION_CONFIG.AUTONOMOUS_DUTIES as readonly string[]).includes(duty)
+          )
+        : []
+      : SHOP_SIMULATION_CONFIG.AUTONOMOUS_DUTIES;
+    const result = advanceShop(
+      simulationStates[shopId],
+      elapsedMs,
+      { inventory: inventory.getAllAvailable(), grossGold: 0 },
+      {
+        unlockedRecipeIds: savedState.unlockedRecipes,
+        duties,
+        brewSpeedMultiplier: equipmentManager.getBrewSpeedMultiplier()
+      }
+    );
+    simulationStates[shopId] = result.state;
+    inventory.reconcileAvailableStock(result.economy.inventory);
+    for (const event of result.events) {
+      if (event.type !== 'ORDER_COMPLETED') continue;
+      ledger.settleOrder(event.recipeName, event.gross);
+      saveManager.updateState((draft) => {
+        draft.recipeMastery[event.recipeId] = (draft.recipeMastery[event.recipeId] ?? 0) + 1;
+        draft.stats.completedOrders += 1;
+        draft.stats.totalRevenue += event.gross;
+      });
+      runAchievementCheck();
+    }
+  };
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       gameClock.pause();
@@ -528,6 +611,9 @@ async function bootstrap() {
 
     // Tick clocks
     gameClock.tick(deltaMs);
+
+    // 非当前场景仅跑同一店铺推进规则，不创建渲染对象；自动补货不在职责链中。
+    advanceBackgroundShop(activeShopId === 'main' ? 'seaside' : 'main', deltaMs);
 
     // 设备加速系数同步 (T3.2)
     orderStateMachine.brewSpeedMultiplier = equipmentManager.getBrewSpeedMultiplier();
@@ -602,6 +688,8 @@ async function bootstrap() {
       saveManager.setActivePlayTime(gameClock.getActivePlayTime());
       saveManager.updateState((draft) => {
         draft.inventory = inventory.getAllStock();
+        draft.world.shops.main.simulation = structuredClone(simulationStates.main);
+        draft.world.shops.seaside.simulation = structuredClone(simulationStates.seaside);
       });
 
       // M3：记录见过的猫睡姿（猫咪图鉴 + 成就）

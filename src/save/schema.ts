@@ -3,8 +3,10 @@ import {
   INITIAL_INVENTORY,
   PLAYER_CONFIG,
   SAVE_CONFIG,
+  SHOP_SIMULATION_CONFIG,
   ShopId
 } from '../config';
+import type { ShopSimulationState, SimOrderStage } from '../shop/types';
 
 export interface FundLoanState {
   id: string;
@@ -30,6 +32,7 @@ export interface ShopSaveState {
   unlocked: boolean;
   player: { x: number; y: number };
   lastSettledAt: number;
+  simulation: ShopSimulationState;
 }
 
 export interface WorldSaveState {
@@ -146,12 +149,32 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
       main: {
         unlocked: true,
         player: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
-        lastSettledAt: 0
+        lastSettledAt: 0,
+        simulation: {
+          shopId: 'main',
+          rngState: SHOP_SIMULATION_CONFIG.MAIN_RNG_SEED,
+          simulatedMs: 0,
+          remainderMs: 0,
+          nextCustomerInMs: SHOP_SIMULATION_CONFIG.INITIAL_CUSTOMER_DELAY_MS,
+          nextCustomerId: 1,
+          customers: [],
+          completedOrders: 0
+        }
       },
       seaside: {
         unlocked: false,
         player: { x: 680, y: 680 },
         lastSettledAt: 0,
+        simulation: {
+          shopId: 'seaside',
+          rngState: SHOP_SIMULATION_CONFIG.SEASIDE_RNG_SEED,
+          simulatedMs: 0,
+          remainderMs: 0,
+          nextCustomerInMs: SHOP_SIMULATION_CONFIG.INITIAL_CUSTOMER_DELAY_MS,
+          nextCustomerId: 1,
+          customers: [],
+          completedOrders: 0
+        },
         decor: {
           slotVariants: {},
           ownedVariants: [],
@@ -183,6 +206,70 @@ function defaultM3Fields(): Pick<
     catPosesSeen: [],
     cat: { lastGiftDate: null, decorationFragments: 0 },
     world: JSON.parse(JSON.stringify(DEFAULT_SAVE_STATE.world)) as WorldSaveState
+  };
+}
+
+const SIM_ORDER_STAGES = new Set<SimOrderStage>([
+  'WAITING_FOR_ORDER',
+  'WAITING_TO_BREW',
+  'BREWING',
+  'WAITING_TO_SERVE',
+  'ENJOYING_DRINK',
+  'WAITING_TO_PAY',
+  'LEAVING'
+]);
+
+function sanitizeShopSimulation(raw: unknown, fallback: ShopSimulationState): ShopSimulationState {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return JSON.parse(JSON.stringify(fallback)) as ShopSimulationState;
+  }
+  const value = raw as Record<string, unknown>;
+  const customers = Array.isArray(value.customers)
+    ? value.customers.flatMap((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+        const customer = item as Record<string, unknown>;
+        if (
+          typeof customer.id !== 'string' ||
+          typeof customer.recipeId !== 'string' ||
+          typeof customer.stage !== 'string' ||
+          !SIM_ORDER_STAGES.has(customer.stage as SimOrderStage)
+        ) return [];
+        const reservedIngredients: Record<string, number> = {};
+        if (customer.reservedIngredients && typeof customer.reservedIngredients === 'object' && !Array.isArray(customer.reservedIngredients)) {
+          for (const [id, count] of Object.entries(customer.reservedIngredients as Record<string, unknown>)) {
+            if (typeof count === 'number' && Number.isFinite(count) && count >= 0) {
+              reservedIngredients[id] = Math.floor(count);
+            }
+          }
+        }
+        return [{
+          id: customer.id,
+          recipeId: customer.recipeId,
+          stage: customer.stage as SimOrderStage,
+          stageRemainingMs: typeof customer.stageRemainingMs === 'number' && Number.isFinite(customer.stageRemainingMs) ? Math.max(0, customer.stageRemainingMs) : 0,
+          patienceRemainingMs: typeof customer.patienceRemainingMs === 'number' && Number.isFinite(customer.patienceRemainingMs) ? Math.max(0, customer.patienceRemainingMs) : SHOP_SIMULATION_CONFIG.PATIENCE_MS,
+          reservedIngredients
+        }];
+      })
+    : [];
+  const nonNegative = (field: string, defaultValue: number): number => {
+    const candidate = value[field];
+    return typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0
+      ? candidate
+      : defaultValue;
+  };
+  return {
+    shopId: fallback.shopId,
+    rngState: Math.floor(nonNegative('rngState', fallback.rngState)) >>> 0,
+    simulatedMs: nonNegative('simulatedMs', fallback.simulatedMs),
+    remainderMs: Math.min(
+      SHOP_SIMULATION_CONFIG.FIXED_TIMESTEP_MS - 1,
+      nonNegative('remainderMs', fallback.remainderMs)
+    ),
+    nextCustomerInMs: nonNegative('nextCustomerInMs', fallback.nextCustomerInMs),
+    nextCustomerId: Math.max(1, Math.floor(nonNegative('nextCustomerId', fallback.nextCustomerId))),
+    customers,
+    completedOrders: Math.floor(nonNegative('completedOrders', fallback.completedOrders))
   };
 }
 
@@ -509,6 +596,7 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
           if (typeof player.x === 'number' && Number.isFinite(player.x)) target.player.x = player.x;
           if (typeof player.y === 'number' && Number.isFinite(player.y)) target.player.y = player.y;
         }
+        target.simulation = sanitizeShopSimulation(shop.simulation, target.simulation);
         if (shopId === 'seaside' && shop.decor && typeof shop.decor === 'object' && !Array.isArray(shop.decor)) {
           const decor = shop.decor as Record<string, unknown>;
           const targetDecor = m3.world.shops.seaside.decor;
