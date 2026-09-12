@@ -2,6 +2,7 @@ import { RECIPE_DEFS } from '../config';
 import { EconomyLedger } from '../economy';
 import { EquipmentManager } from '../equipment';
 import { SaveManager } from '../save';
+import { drinkIconHtml } from './drinkIcons';
 import { ToastManager } from './toast';
 
 export class RecipesModal {
@@ -98,7 +99,7 @@ export class RecipesModal {
         cardsHtml += `
           <div class="recipe-card ${isUnlocked ? 'unlocked' : 'locked'}">
             <div class="recipe-header">
-              <div class="recipe-name">${recipe.name}</div>
+              <div class="recipe-name">${drinkIconHtml(recipe.id, '🥤', isUnlocked ? 44 : 36)} ${recipe.name}</div>
               <div class="recipe-price">🪙 售价 ${recipe.price}</div>
             </div>
             <div class="recipe-meta">

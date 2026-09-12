@@ -3,6 +3,7 @@ import { AchievementManager } from '../achievements';
 import { DecorManager } from '../decor';
 import { RegularManager } from '../regulars';
 import { SaveManager } from '../save';
+import { drinkIconHtml } from './drinkIcons';
 
 type HandbookTab = 'regulars' | 'drinks' | 'furniture' | 'cat' | 'achievements';
 
@@ -155,7 +156,7 @@ export class HandbookModal {
       const icon = r.lineId === 'espresso' ? '☕' : r.lineId === 'tea' ? '🍵' : '🥐';
       return `
         <div class="handbook-card ${unlocked ? '' : 'locked'}">
-          <div class="hb-icon">${unlocked ? icon : '❔'}</div>
+          <div class="hb-icon">${unlocked ? drinkIconHtml(r.id, icon, 48) : '❔'}</div>
           <div class="hb-name">${unlocked ? r.name : '？？？'}</div>
           <div class="hb-sub">${unlocked ? `${r.lineName} · 已售 ${sold} 杯` : '尚未研习的配方'}</div>
         </div>
