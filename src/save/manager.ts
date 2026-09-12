@@ -1,16 +1,16 @@
 import { SAVE_CONFIG } from '../config';
 import {
   DEFAULT_SAVE_STATE,
-  SaveStateV1,
+  SaveStateV2,
   validateAndSanitizeSave
 } from './schema';
 import { SafeLocalStorageAdapter, StorageAdapter } from './storage';
 
-export type StateListener = (state: Readonly<SaveStateV1>) => void;
+export type StateListener = (state: Readonly<SaveStateV2>) => void;
 
 export class SaveManager {
   private storage: StorageAdapter;
-  private state: SaveStateV1;
+  private state: SaveStateV2;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners: Set<StateListener> = new Set();
   private boundVisibilityHandler: (() => void) | null = null;
@@ -21,7 +21,7 @@ export class SaveManager {
     this.state = this.loadFromStorage();
   }
 
-  public getState(): Readonly<SaveStateV1> {
+  public getState(): Readonly<SaveStateV2> {
     return this.state;
   }
 
@@ -41,7 +41,7 @@ export class SaveManager {
     }
   }
 
-  public updateState(updater: (draft: SaveStateV1) => void): void {
+  public updateState(updater: (draft: SaveStateV2) => void): void {
     updater(this.state);
     this.notifyListeners();
     this.requestAutoSave();
@@ -72,7 +72,7 @@ export class SaveManager {
     });
   }
 
-  private loadFromStorage(): SaveStateV1 {
+  private loadFromStorage(): SaveStateV2 {
     const raw = this.storage.getItem(SAVE_CONFIG.STORAGE_KEY);
     if (!raw) {
       const initial = { ...DEFAULT_SAVE_STATE, lastSavedAt: Date.now() };
@@ -95,7 +95,7 @@ export class SaveManager {
     }
   }
 
-  private writeToStorage(data: SaveStateV1): void {
+  private writeToStorage(data: SaveStateV2): void {
     try {
       const serialized = JSON.stringify(data);
       this.storage.setItem(SAVE_CONFIG.STORAGE_KEY, serialized);
@@ -128,7 +128,7 @@ export class SaveManager {
     return JSON.stringify(this.state, null, 2);
   }
 
-  public importJSON(jsonStr: string): SaveStateV1 {
+  public importJSON(jsonStr: string): SaveStateV2 {
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
@@ -148,7 +148,7 @@ export class SaveManager {
     return this.state;
   }
 
-  public resetToDefault(): SaveStateV1 {
+  public resetToDefault(): SaveStateV2 {
     this.state = {
       ...DEFAULT_SAVE_STATE,
       lastSavedAt: Date.now()

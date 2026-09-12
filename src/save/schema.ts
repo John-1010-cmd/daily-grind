@@ -4,8 +4,21 @@ import {
   SAVE_CONFIG
 } from '../config';
 
-export interface SaveStateV1 {
-  version: 1;
+export interface FundLoanState {
+  id: string;
+  amount: number;
+  repaid: number;
+  appliedAt: number;
+}
+
+export interface RegularState {
+  favor: number;
+  visits: number;
+  storiesSeen: string[];
+}
+
+export interface SaveStateV2 {
+  version: 2;
   gold: number;
   player: {
     x: number;
@@ -20,12 +33,39 @@ export interface SaveStateV1 {
   settings: {
     debugNavOverlay: boolean;
   };
+  // ---- M3 新增 ----
+  decor: {
+    slotVariants: Record<string, string>;
+    ownedVariants: string[];
+    ownedThemes: string[];
+    theme: string;
+  };
+  equipmentLevel: number;
+  regulars: Record<string, RegularState>;
+  staff: {
+    hired: boolean;
+    duties: string[];
+    storiesSeen: string[];
+    autoOrdersCompleted: number;
+  };
+  fund: {
+    loans: FundLoanState[];
+    totalBorrowed: number;
+  };
+  achievements: string[];
+  stats: {
+    completedOrders: number;
+    totalRevenue: number;
+  };
+  catPosesSeen: string[];
 }
 
-export type SaveState = SaveStateV1;
+export type SaveStateV1Legacy = Omit<SaveStateV2, 'version' | 'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'> & { version: 1 };
 
-export const DEFAULT_SAVE_STATE: SaveStateV1 = {
-  version: 1,
+export type SaveState = SaveStateV2;
+
+export const DEFAULT_SAVE_STATE: SaveStateV2 = {
+  version: 2,
   gold: SAVE_CONFIG.INITIAL_GOLD,
   player: {
     x: PLAYER_CONFIG.INITIAL_X,
@@ -39,36 +79,80 @@ export const DEFAULT_SAVE_STATE: SaveStateV1 = {
   placedFurniture: ['default_chair', 'default_table'],
   settings: {
     debugNavOverlay: false
-  }
+  },
+  decor: {
+    slotVariants: {},
+    ownedVariants: [],
+    ownedThemes: ['theme_wood'],
+    theme: 'theme_wood'
+  },
+  equipmentLevel: 1,
+  regulars: {},
+  staff: {
+    hired: false,
+    duties: [],
+    storiesSeen: [],
+    autoOrdersCompleted: 0
+  },
+  fund: {
+    loans: [],
+    totalBorrowed: 0
+  },
+  achievements: [],
+  stats: {
+    completedOrders: 0,
+    totalRevenue: 0
+  },
+  catPosesSeen: []
 };
 
+function defaultM3Fields(): Pick<
+  SaveStateV2,
+  'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'
+> {
+  return {
+    decor: { ...DEFAULT_SAVE_STATE.decor, slotVariants: {}, ownedVariants: [], ownedThemes: ['theme_wood'] },
+    equipmentLevel: 1,
+    regulars: {},
+    staff: { hired: false, duties: [], storiesSeen: [], autoOrdersCompleted: 0 },
+    fund: { loans: [], totalBorrowed: 0 },
+    achievements: [],
+    stats: { completedOrders: 0, totalRevenue: 0 },
+    catPosesSeen: []
+  };
+}
+
 /**
- * Migration registry from older versions to v1.
+ * Migration registry from older versions to v2.
  */
-export function migrateSave(raw: Record<string, unknown>): SaveStateV1 {
+export function migrateSave(raw: Record<string, unknown>): SaveStateV2 {
   const rawVersion = typeof raw.version === 'number' ? raw.version : 0;
 
-  let current = { ...raw };
+  let current: Record<string, unknown> = { ...raw };
 
-  // Example migration step: version 0 (unversioned legacy) -> version 1
   if (rawVersion < 1) {
     current = {
       ...DEFAULT_SAVE_STATE,
       ...current,
-      version: 1,
       lastSavedAt: typeof current.lastSavedAt === 'number' ? current.lastSavedAt : Date.now()
     };
   }
 
-  // Future migrations:
-  // if (rawVersion === 1) { current = migrateV1ToV2(current); }
+  // v1 -> v2: 补齐 M3 新增字段（装修/装备/常客/店员/基金/成就/统计/猫睡姿）
+  if (rawVersion < 2) {
+    current = {
+      ...current,
+      ...defaultM3Fields(),
+      version: 2
+    };
+  }
 
   return validateAndSanitizeSave(current).data;
 }
 
 export interface ValidationResult {
   valid: boolean;
-  data: SaveStateV1;
+  data: SaveStateV2;
   errors: string[];
 }
 
@@ -87,7 +171,7 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     };
   }
 
-  const obj = raw as Record<string, unknown>;
+  let obj = raw as Record<string, unknown>;
 
   // Check version
   if (typeof obj.version !== 'number') {
@@ -100,12 +184,8 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
       errors
     };
   } else if (obj.version < SAVE_CONFIG.CURRENT_VERSION) {
-    // Migrate older version
-    return {
-      valid: true,
-      data: migrateSave(obj),
-      errors
-    };
+    // 老版本：补齐 M3 默认字段并提升到当前版本号，随后走完整校验以暴露原始字段错误
+    obj = { ...defaultM3Fields(), ...obj, version: SAVE_CONFIG.CURRENT_VERSION };
   }
 
   // Validate gold
@@ -224,8 +304,106 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     }
   }
 
-  const sanitizedData: SaveStateV1 = {
-    version: 1,
+  // ---- M3 新增字段（宽松清洗：非法则回落默认）----
+  const m3 = defaultM3Fields();
+
+  if (obj.decor && typeof obj.decor === 'object' && !Array.isArray(obj.decor)) {
+    const d = obj.decor as Record<string, unknown>;
+    if (d.slotVariants && typeof d.slotVariants === 'object' && !Array.isArray(d.slotVariants)) {
+      for (const [k, v] of Object.entries(d.slotVariants as Record<string, unknown>)) {
+        if (typeof v === 'string') m3.decor.slotVariants[k] = v;
+      }
+    }
+    if (Array.isArray(d.ownedVariants)) {
+      m3.decor.ownedVariants = d.ownedVariants.filter((v): v is string => typeof v === 'string');
+    }
+    if (Array.isArray(d.ownedThemes)) {
+      const themes = d.ownedThemes.filter((v): v is string => typeof v === 'string');
+      if (themes.length > 0) m3.decor.ownedThemes = themes;
+    }
+    if (typeof d.theme === 'string') m3.decor.theme = d.theme;
+  }
+
+  if (typeof obj.equipmentLevel === 'number' && Number.isFinite(obj.equipmentLevel) && obj.equipmentLevel >= 1) {
+    m3.equipmentLevel = Math.floor(obj.equipmentLevel);
+  }
+
+  if (obj.regulars && typeof obj.regulars === 'object' && !Array.isArray(obj.regulars)) {
+    for (const [k, v] of Object.entries(obj.regulars as Record<string, unknown>)) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const r = v as Record<string, unknown>;
+        m3.regulars[k] = {
+          favor: typeof r.favor === 'number' && r.favor >= 0 ? Math.floor(r.favor) : 0,
+          visits: typeof r.visits === 'number' && r.visits >= 0 ? Math.floor(r.visits) : 0,
+          storiesSeen: Array.isArray(r.storiesSeen)
+            ? r.storiesSeen.filter((s): s is string => typeof s === 'string')
+            : []
+        };
+      }
+    }
+  }
+
+  if (obj.staff && typeof obj.staff === 'object' && !Array.isArray(obj.staff)) {
+    const s = obj.staff as Record<string, unknown>;
+    m3.staff = {
+      hired: s.hired === true,
+      duties: Array.isArray(s.duties) ? s.duties.filter((v): v is string => typeof v === 'string') : [],
+      storiesSeen: Array.isArray(s.storiesSeen)
+        ? s.storiesSeen.filter((v): v is string => typeof v === 'string')
+        : [],
+      autoOrdersCompleted:
+        typeof s.autoOrdersCompleted === 'number' && s.autoOrdersCompleted >= 0
+          ? Math.floor(s.autoOrdersCompleted)
+          : 0
+    };
+  }
+
+  if (obj.fund && typeof obj.fund === 'object' && !Array.isArray(obj.fund)) {
+    const f = obj.fund as Record<string, unknown>;
+    if (Array.isArray(f.loans)) {
+      for (const l of f.loans) {
+        if (l && typeof l === 'object' && !Array.isArray(l)) {
+          const loan = l as Record<string, unknown>;
+          if (
+            typeof loan.id === 'string' &&
+            typeof loan.amount === 'number' && loan.amount > 0 &&
+            typeof loan.repaid === 'number' && loan.repaid >= 0
+          ) {
+            m3.fund.loans.push({
+              id: loan.id,
+              amount: Math.floor(loan.amount),
+              repaid: Math.min(Math.floor(loan.repaid), Math.floor(loan.amount)),
+              appliedAt: typeof loan.appliedAt === 'number' ? loan.appliedAt : Date.now()
+            });
+          }
+        }
+      }
+    }
+    if (typeof f.totalBorrowed === 'number' && f.totalBorrowed >= 0) {
+      m3.fund.totalBorrowed = Math.floor(f.totalBorrowed);
+    }
+  }
+
+  if (Array.isArray(obj.achievements)) {
+    m3.achievements = obj.achievements.filter((v): v is string => typeof v === 'string');
+  }
+
+  if (obj.stats && typeof obj.stats === 'object' && !Array.isArray(obj.stats)) {
+    const st = obj.stats as Record<string, unknown>;
+    if (typeof st.completedOrders === 'number' && st.completedOrders >= 0) {
+      m3.stats.completedOrders = Math.floor(st.completedOrders);
+    }
+    if (typeof st.totalRevenue === 'number' && st.totalRevenue >= 0) {
+      m3.stats.totalRevenue = Math.floor(st.totalRevenue);
+    }
+  }
+
+  if (Array.isArray(obj.catPosesSeen)) {
+    m3.catPosesSeen = obj.catPosesSeen.filter((v): v is string => typeof v === 'string');
+  }
+
+  const sanitizedData: SaveStateV2 = {
+    version: 2,
     gold,
     player: { x: playerX, y: playerY },
     activePlayTime,
@@ -234,7 +412,8 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     unlockedRecipes: unlockedRecipes.length > 0 ? unlockedRecipes : [...DEFAULT_SAVE_STATE.unlockedRecipes],
     recipeMastery,
     placedFurniture: placedFurniture.length > 0 ? placedFurniture : [...DEFAULT_SAVE_STATE.placedFurniture],
-    settings
+    settings,
+    ...m3
   };
 
   return {

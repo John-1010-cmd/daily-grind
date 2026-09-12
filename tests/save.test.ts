@@ -18,9 +18,9 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     saveManager = new SaveManager(memoryStorage);
   });
 
-  it('1. 正常存档解析：初始默认状态完整且符合 v1 契约', () => {
+  it('1. 正常存档解析：初始默认状态完整且符合 v2 契约', () => {
     const state = saveManager.getState();
-    expect(state.version).toBe(1);
+    expect(state.version).toBe(2);
     expect(state.gold).toBe(SAVE_CONFIG.INITIAL_GOLD);
     expect(state.player.x).toBeGreaterThan(0);
     expect(state.player.y).toBeGreaterThan(0);
@@ -29,14 +29,14 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     expect(state.unlockedRecipes).toContain('espresso');
   });
 
-  it('2. 版本迁移路径：无版本号或老版本 (v0) 能够平滑迁移至 v1', () => {
+  it('2. 版本迁移路径：无版本号或老版本 (v0) 能够平滑迁移至 v2', () => {
     const legacyRaw = {
       gold: 500,
       player: { x: 500, y: 500 }
       // missing version
     };
     const migrated = migrateSave(legacyRaw);
-    expect(migrated.version).toBe(1);
+    expect(migrated.version).toBe(2);
     expect(migrated.gold).toBe(500);
     expect(migrated.player.x).toBe(500);
     expect(migrated.player.y).toBe(500);
@@ -47,7 +47,7 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     memoryStorage.setItem(SAVE_CONFIG.STORAGE_KEY, '{ invalid json: broken syntax ...');
     const newManager = new SaveManager(memoryStorage);
     const state = newManager.getState();
-    expect(state.version).toBe(1);
+    expect(state.version).toBe(2);
     expect(state.gold).toBe(SAVE_CONFIG.INITIAL_GOLD);
   });
 
@@ -82,7 +82,7 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     const result = validateAndSanitizeSave(futureSave);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('未知或未来的存档版本'))).toBe(true);
-    expect(result.data.version).toBe(1);
+    expect(result.data.version).toBe(2);
     expect(result.data.gold).toBe(SAVE_CONFIG.INITIAL_GOLD);
   });
 
@@ -158,7 +158,7 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     freshManager.importJSON(exported);
 
     const importedState = freshManager.getState();
-    expect(importedState.version).toBe(1);
+    expect(importedState.version).toBe(2);
     expect(importedState.gold).toBe(777);
     expect(importedState.player.x).toBe(800);
     expect(importedState.player.y).toBe(600);

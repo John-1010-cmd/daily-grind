@@ -580,7 +580,7 @@ export const SESSION_RELEASE_CONDITIONS = {
 
 export const SAVE_CONFIG = {
   STORAGE_KEY: 'daily_grind_save_v1',
-  CURRENT_VERSION: 1,
+  CURRENT_VERSION: 2,
   INITIAL_GOLD: 100,
   AUTOSAVE_THROTTLE_MS: 1000,
   VALID_RECIPE_IDS: [
@@ -600,12 +600,433 @@ export const SAVE_CONFIG = {
 export const UI_CONFIG = {
   TOAST_DURATION_MS: 2600,
   TOP_NAV_BUTTONS: [
-    { id: 'recipes', label: '配方', icon: '📖', enabledInM0: false, enabledInM1: true },
-    { id: 'supply', label: '进货', icon: '📦', enabledInM0: false, enabledInM1: true },
-    { id: 'decor', label: '装修', icon: '🛋️', enabledInM0: false, enabledInM1: false },
-    { id: 'handbook', label: '图鉴', icon: '📕', enabledInM0: false, enabledInM1: false },
-    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false, enabledInM1: false },
-    { id: 'fund', label: '梦想基金', icon: '🏺', enabledInM0: false, enabledInM1: false },
-    { id: 'settings', label: '设置', icon: '⚙️', enabledInM0: true, enabledInM1: true }
+    { id: 'recipes', label: '配方', icon: '📖', enabledInM0: false, enabledInM1: true, enabledInM3: true },
+    { id: 'supply', label: '进货', icon: '📦', enabledInM0: false, enabledInM1: true, enabledInM3: true },
+    { id: 'decor', label: '装修', icon: '🛋️', enabledInM0: false, enabledInM1: false, enabledInM3: true },
+    { id: 'handbook', label: '图鉴', icon: '📕', enabledInM0: false, enabledInM1: false, enabledInM3: true },
+    { id: 'staff', label: '店员', icon: '🧑‍🍳', enabledInM0: false, enabledInM1: false, enabledInM3: true },
+    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false, enabledInM1: false, enabledInM3: false },
+    { id: 'fund', label: '梦想基金', icon: '🏺', enabledInM0: false, enabledInM1: false, enabledInM3: true },
+    { id: 'settings', label: '设置', icon: '⚙️', enabledInM0: true, enabledInM1: true, enabledInM3: true }
   ]
 } as const;
+
+// ==================== M3 经营厚度：设备升级 (T3.2) ====================
+
+export interface EquipmentLevelDef {
+  level: number;
+  label: string;
+  description: string;
+  brewSpeedMultiplier: number;
+  brewSlots: number;
+  upgradeCost: number;
+}
+
+export const EQUIPMENT_LEVELS: readonly EquipmentLevelDef[] = [
+  {
+    level: 1,
+    label: '家用单头咖啡机',
+    description: '开店时的老家伙，一次只能萃一杯。',
+    brewSpeedMultiplier: 1,
+    brewSlots: 1,
+    upgradeCost: 0
+  },
+  {
+    level: 2,
+    label: '商用双头咖啡机',
+    description: '双头并行萃取，同时做两杯；出品快 25%。',
+    brewSpeedMultiplier: 0.75,
+    brewSlots: 2,
+    upgradeCost: 300
+  },
+  {
+    level: 3,
+    label: '大师级双头咖啡机',
+    description: '温控与压力俱佳，出品快 45%，依旧双杯并行。',
+    brewSpeedMultiplier: 0.55,
+    brewSlots: 2,
+    upgradeCost: 600
+  }
+] as const;
+
+// ==================== M3 经营厚度：店员 (T3.5) ====================
+
+export type StaffDuty = 'TAKE_ORDER' | 'BREW' | 'SERVE' | 'CHECKOUT' | 'AUTO_SUPPLY';
+
+export const STAFF_CONFIG = {
+  HIRE_FEE: 200,
+  WAGE_RATE: 0.1,
+  AUTO_SUPPLY_THRESHOLD: 4,
+  AUTO_SUPPLY_COOLDOWN_SECONDS: 20,
+  TASK_DURATIONS: {
+    TAKE_ORDER: 1.2,
+    SERVE: 2.0,
+    CHECKOUT: 1.5
+  },
+  DUTY_LABELS: {
+    TAKE_ORDER: '接单',
+    BREW: '制作',
+    SERVE: '上菜',
+    CHECKOUT: '收银',
+    AUTO_SUPPLY: '自动补货'
+  } as Record<StaffDuty, string>,
+  WORK_ANCHOR: { x: 860, y: 470 } // 吧台内侧工作位
+} as const;
+
+export interface StaffStoryChapter {
+  id: string;
+  title: string;
+  text: string;
+  trigger: 'on_hire' | 'first_auto_order' | 'orders_10';
+}
+
+export const STAFF_MEMBER_DEF = {
+  id: 'staff_xiaoqing',
+  name: '小晴',
+  job: '兼职店员 / 美院学生',
+  portraitIcon: '🧑‍🎨',
+  description: '美院插画系的学生，课余来店里帮忙，总说店里的光线最适合画画。',
+  stories: [
+    {
+      id: 'staff_story_1',
+      title: '第一天的围裙',
+      text: '小晴系上围裙时还有点手忙脚乱："我会好好记住每位客人喜欢的味道的！"她把配方手册翻得卷了边。',
+      trigger: 'on_hire'
+    },
+    {
+      id: 'staff_story_2',
+      title: '偷画的速写',
+      text: '打烊前你发现吧台上多了一张速写：橘猫趴在桌上，你端着杯子笑。小晴吐了吐舌头："练笔而已啦。"',
+      trigger: 'first_auto_order'
+    },
+    {
+      id: 'staff_story_3',
+      title: '想留下来',
+      text: '"其实……毕业以后我也想开一家这样的店。"小晴擦着杯子轻声说，"在这里打工，像提前遇见了未来的自己。"',
+      trigger: 'orders_10'
+    }
+  ] as StaffStoryChapter[]
+} as const;
+
+// ==================== M3 经营厚度：梦想基金 (T3.6) ====================
+
+export interface FundTierDef {
+  id: string;
+  label: string;
+  minOrders: number;
+  minRevenue: number;
+  minStories: number;
+  cap: number;
+}
+
+export const FUND_CONFIG = {
+  REPAYMENT_RATE: 0.1,
+  APPLY_AMOUNTS: [100, 300, 600],
+  TIERS: [
+    { id: 'tier_0', label: '起步阶段', minOrders: 0, minRevenue: 0, minStories: 0, cap: 200 },
+    { id: 'tier_1', label: '小有名气', minOrders: 15, minRevenue: 400, minStories: 0, cap: 500 },
+    { id: 'tier_2', label: '街坊挚爱', minOrders: 40, minRevenue: 1500, minStories: 2, cap: 1000 },
+    { id: 'tier_3', label: '梦想启航', minOrders: 90, minRevenue: 4000, minStories: 5, cap: 2200 }
+  ] as readonly FundTierDef[],
+  SENIOR_NAME: '支持开店的前辈'
+} as const;
+
+// ==================== M3 经营厚度：常客 (T3.3) ====================
+
+export interface RegularStorySnippet {
+  id: string;
+  title: string;
+  text: string;
+  favorRequired: number;
+}
+
+export interface RegularDef {
+  id: string;
+  name: string;
+  job: string;
+  portraitIcon: string;
+  description: string;
+  preferredRecipeId: string;
+  exclusiveRecipeId: string;
+  exclusiveFavorRequired: number;
+  favorPerVisit: number;
+  color: number;
+  stories: RegularStorySnippet[];
+}
+
+/** 常客专属点单：不入配方树、不解锁售卖，仅对应常客好感达标后偶尔点单 */
+export interface ExclusiveRecipeDef {
+  id: string;
+  regularId: string;
+  name: string;
+  ingredients: Record<string, number>;
+  price: number;
+  brewTimeSeconds: number;
+}
+
+export const EXCLUSIVE_RECIPE_DEFS: readonly ExclusiveRecipeDef[] = [
+  { id: 'ex_caramel_cloud', regularId: 'regular_linwan', name: '焦糖云朵拿铁', ingredients: { coffee_beans: 1, milk: 1, syrup: 1 }, price: 40, brewTimeSeconds: 4.0 },
+  { id: 'ex_orange_americano', regularId: 'regular_laozhou', name: '陈皮美式', ingredients: { coffee_beans: 1, fruits: 1 }, price: 30, brewTimeSeconds: 3.2 },
+  { id: 'ex_jasmine_honey', regularId: 'regular_susu', name: '茉莉蜜露', ingredients: { tea_leaves: 1, syrup: 1 }, price: 32, brewTimeSeconds: 3.0 },
+  { id: 'ex_double_espresso', regularId: 'regular_akai', name: '深夜双倍浓缩', ingredients: { coffee_beans: 2 }, price: 26, brewTimeSeconds: 3.5 },
+  { id: 'ex_peach_sparkle', regularId: 'regular_xiaoya', name: '蜜桃气泡乌龙', ingredients: { tea_leaves: 1, fruits: 1, syrup: 1 }, price: 42, brewTimeSeconds: 4.2 }
+] as const;
+
+export const REGULAR_DEFS: readonly RegularDef[] = [
+  {
+    id: 'regular_linwan',
+    name: '林晚',
+    job: '自由插画师',
+    portraitIcon: '👩‍🎨',
+    description: '总坐在靠窗的位置画速写，画里最常出现的是那只橘猫。',
+    preferredRecipeId: 'latte',
+    exclusiveRecipeId: 'ex_caramel_cloud',
+    exclusiveFavorRequired: 10,
+    favorPerVisit: 2,
+    color: 0xe84393,
+    stories: [
+      { id: 'linwan_s1', title: '速写本里的猫', favorRequired: 2, text: '“你的猫比模特还专业。”林晚把速写本转给你看——一整页都是橘猫的各种睡姿。' },
+      { id: 'linwan_s2', title: '截稿日的港湾', favorRequired: 6, text: '截稿日前夜，林晚抱着电脑冲进店里：“老样子！只有这里的拿铁能救我的稿子。”' },
+      { id: 'linwan_s3', title: '一张小画', favorRequired: 14, text: '林晚临走前留下一张小画：晨光里的咖啡馆门口，招牌下写着“每日研磨”。“送你，挂在吧台后面吧。”' }
+    ]
+  },
+  {
+    id: 'regular_laozhou',
+    name: '老周',
+    job: '退休语文教师',
+    portraitIcon: '👴',
+    description: '每天下午准时出现，点一杯美式，读一小时旧书。',
+    preferredRecipeId: 'americano',
+    exclusiveRecipeId: 'ex_orange_americano',
+    exclusiveFavorRequired: 10,
+    favorPerVisit: 2,
+    color: 0x6c5ce7,
+    stories: [
+      { id: 'laozhou_s1', title: '旧书与美式', favorRequired: 2, text: '老周推了推老花镜：“美式要烫一点才好，就像旧书要慢慢读。”' },
+      { id: 'laozhou_s2', title: '讲台下的故事', favorRequired: 6, text: '“以前站讲台，总盼着下课铃。”老周笑了笑，“现在倒好，盼着你们店门早点开。”' },
+      { id: 'laozhou_s3', title: '陈皮的心意', favorRequired: 14, text: '老周从布包里掏出一小罐自家晒的陈皮：“泡在美式里试试？这是我老伴儿以前的喝法。”' }
+    ]
+  },
+  {
+    id: 'regular_susu',
+    name: '苏苏',
+    job: '隔壁花店店主',
+    portraitIcon: '👩‍🌾',
+    description: '指尖总带着淡淡的花香，会顺手帮你把窗台的绿植修剪整齐。',
+    preferredRecipeId: 'jasmine_tea',
+    exclusiveRecipeId: 'ex_jasmine_honey',
+    exclusiveFavorRequired: 10,
+    favorPerVisit: 2,
+    color: 0x00b894,
+    stories: [
+      { id: 'susu_s1', title: '顺手修的枝叶', favorRequired: 2, text: '“你窗台那盆龟背竹有点徒长了。”苏苏变戏法似的拿出小剪刀，三两下修出漂亮的造型。' },
+      { id: 'susu_s2', title: '花与茶的共性', favorRequired: 6, text: '“养花和泡茶一样，”苏苏捧着茉莉清茶，“都要等，急不得。”' },
+      { id: 'susu_s3', title: '一束无名小花', favorRequired: 14, text: '打烊时吧台上多了一束小雏菊，卡片上写着：“给街角最温暖的店。——苏苏”' }
+    ]
+  },
+  {
+    id: 'regular_akai',
+    name: '阿凯',
+    job: '独立游戏开发者',
+    portraitIcon: '👨‍💻',
+    description: '背着贴满贴纸的电脑包，据说在做一款“关于等待的游戏”。',
+    preferredRecipeId: 'espresso',
+    exclusiveRecipeId: 'ex_double_espresso',
+    exclusiveFavorRequired: 10,
+    favorPerVisit: 2,
+    color: 0x0984e3,
+    stories: [
+      { id: 'akai_s1', title: '浓缩续命', favorRequired: 2, text: '阿凯顶着黑眼圈推开门：“浓缩，双份……不，先来单份，我怕心跳过速。”' },
+      { id: 'akai_s2', title: 'bug 与奶泡', favorRequired: 6, text: '“你知道吗，调奶泡和调 bug 一个道理，”阿凯盯着杯子，“温度不对，全盘皆输。”' },
+      { id: 'akai_s3', title: '游戏的彩蛋', favorRequired: 14, text: '“我的游戏快做完了。”阿凯难得地笑了，“彩蛋里有一家咖啡馆，长得像这里。”' }
+    ]
+  },
+  {
+    id: 'regular_xiaoya',
+    name: '小雅',
+    job: '考研备考生',
+    portraitIcon: '👧',
+    description: '总带着一摞参考书，困了就趴在桌上小睡十分钟。',
+    preferredRecipeId: 'peach_oolong',
+    exclusiveRecipeId: 'ex_peach_sparkle',
+    exclusiveFavorRequired: 10,
+    favorPerVisit: 2,
+    color: 0xfdcb6e,
+    stories: [
+      { id: 'xiaoya_s1', title: '十分钟的小睡', favorRequired: 2, text: '小雅趴在参考书上一觉睡到饮品凉掉，醒来慌忙道歉。你默默帮她换了一杯热的。' },
+      { id: 'xiaoya_s2', title: '倒计时的日子', favorRequired: 6, text: '“还有一百天。”小雅在杯套上写了个小小的数字，“考完了我要来店里打一天游戏！”' },
+      { id: 'xiaoya_s3', title: '放榜的消息', favorRequired: 14, text: '小雅举着手机冲进来，屏幕上是录取通知：“第一家就想来这里庆祝！”' }
+    ]
+  }
+] as const;
+
+export const REGULAR_CONFIG = {
+  SPAWN_CHANCE: 0.45,
+  EXCLUSIVE_ORDER_CHANCE: 0.5
+} as const;
+
+// ==================== M3 经营厚度：装修 (T3.1) ====================
+
+export interface DecorVariantDef {
+  id: string;
+  name: string;
+  cost: number;
+  description: string;
+}
+
+export interface DecorSlotDef {
+  id: string;
+  name: string;
+  sceneObjectId: string;
+  icon: string;
+  variants: DecorVariantDef[];
+}
+
+export const DECOR_SLOTS: readonly DecorSlotDef[] = [
+  {
+    id: 'slot_window_plants', name: '窗台绿植', sceneObjectId: 'window', icon: '🪴',
+    variants: [
+      { id: 'plant_monstera', name: '龟背竹与蕨丛', cost: 0, description: '开店时就有的老伙计们。' },
+      { id: 'plant_pothos', name: '垂蔓绿萝', cost: 80, description: '垂下来的绿瀑布，风一吹轻轻晃。' },
+      { id: 'plant_succulent', name: '多肉拼盘', cost: 120, description: '一排圆滚滚的小多肉，治愈力满分。' }
+    ]
+  },
+  {
+    id: 'slot_door', name: '门口装饰', sceneObjectId: 'door', icon: '🚪',
+    variants: [
+      { id: 'door_wood', name: '原木玻璃门', cost: 0, description: '朴素耐看的木框玻璃门。' },
+      { id: 'door_lace', name: '蕾丝半帘', cost: 60, description: '阳光透过蕾丝洒下细碎的光斑。' },
+      { id: 'door_wreath', name: '干花花环', cost: 100, description: '苏苏帮忙编的干花门环，带着淡香。' }
+    ]
+  },
+  {
+    id: 'slot_counter', name: '吧台台面', sceneObjectId: 'counter', icon: '🪵',
+    variants: [
+      { id: 'counter_oak', name: '原木吧台', cost: 0, description: '被擦得发亮的原木台面。' },
+      { id: 'counter_walnut', name: '胡桃木吧台', cost: 150, description: '深色胡桃木，衬得咖啡杯更温润。' },
+      { id: 'counter_cream', name: '奶油白吧台', cost: 200, description: '明亮的奶油色，店里一下子轻快起来。' }
+    ]
+  },
+  {
+    id: 'slot_pastry', name: '糕点柜', sceneObjectId: 'pastry_case', icon: '🥐',
+    variants: [
+      { id: 'pastry_glass', name: '玻璃展柜', cost: 0, description: '通透的玻璃柜，牛角包一览无余。' },
+      { id: 'pastry_copper', name: '复古铜框柜', cost: 90, description: '铜框带着岁月的温度。' }
+    ]
+  },
+  {
+    id: 'slot_table_1', name: '1号桌样式', sceneObjectId: 'table_1', icon: '🪑',
+    variants: [
+      { id: 'table_wood', name: '原木方桌', cost: 0, description: '结实耐用的原木桌。' },
+      { id: 'table_cloth', name: '布艺桌布', cost: 70, description: '铺上米色桌布，杯子放上去都安静了。' },
+      { id: 'table_iron', name: '复古铁艺桌', cost: 110, description: '铸铁桌脚，有点欧洲街角的味道。' }
+    ]
+  },
+  {
+    id: 'slot_table_2', name: '2号桌样式', sceneObjectId: 'table_2', icon: '🪑',
+    variants: [
+      { id: 'table_wood', name: '原木方桌', cost: 0, description: '结实耐用的原木桌。' },
+      { id: 'table_cloth', name: '布艺桌布', cost: 70, description: '铺上米色桌布，杯子放上去都安静了。' },
+      { id: 'table_iron', name: '复古铁艺桌', cost: 110, description: '铸铁桌脚，有点欧洲街角的味道。' }
+    ]
+  },
+  {
+    id: 'slot_table_3', name: '3号桌样式', sceneObjectId: 'table_3', icon: '🪑',
+    variants: [
+      { id: 'table_wood', name: '原木方桌', cost: 0, description: '结实耐用的原木桌。' },
+      { id: 'table_cloth', name: '布艺桌布', cost: 70, description: '铺上米色桌布，杯子放上去都安静了。' }
+    ]
+  },
+  {
+    id: 'slot_bookshelf', name: '右侧书架', sceneObjectId: 'bookshelf_right', icon: '📚',
+    variants: [
+      { id: 'shelf_dark', name: '深木书架', cost: 0, description: '高到屋顶的深色书架。' },
+      { id: 'shelf_ladder', name: '阶梯书架', cost: 130, description: '带小梯子，最上层的画册也能够到。' }
+    ]
+  }
+] as const;
+
+export interface DecorThemeDef {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  tintColor: number;
+  tintAlpha: number;
+}
+
+export const DECOR_THEMES: readonly DecorThemeDef[] = [
+  { id: 'theme_wood', name: '暖阳原木', description: '开店之初的温暖木色。', cost: 0, tintColor: 0x000000, tintAlpha: 0 },
+  { id: 'theme_matcha', name: '抹茶清新', description: '淡淡的抹茶绿，像雨后的庭院。', cost: 150, tintColor: 0xa8d5a2, tintAlpha: 0.08 },
+  { id: 'theme_dusk', name: '暮色紫藤', description: '紫藤花架下的黄昏色调。', cost: 150, tintColor: 0xb8a9d9, tintAlpha: 0.08 },
+  { id: 'theme_sea', name: '海盐蓝调', description: '一点点海盐蓝，预告远方的分店。', cost: 200, tintColor: 0xa9d0e8, tintAlpha: 0.08 }
+] as const;
+
+// ==================== M3 经营厚度：成就 (T3.7) ====================
+
+export type AchievementCategory = 'business' | 'relation' | 'collection' | 'branch';
+
+export interface AchievementDef {
+  id: string;
+  category: AchievementCategory;
+  name: string;
+  description: string;
+  isBranchPrerequisite?: boolean;
+  condition:
+    | { type: 'completedOrders'; threshold: number }
+    | { type: 'totalRevenue'; threshold: number }
+    | { type: 'unlockedLines'; threshold: number }
+    | { type: 'regularsFavor'; count: number; favor: number }
+    | { type: 'storiesSeen'; threshold: number }
+    | { type: 'ownedVariants'; threshold: number }
+    | { type: 'catPoses'; threshold: number };
+  reward: { gold: number } | { badge: string };
+}
+
+export const ACHIEVEMENT_DEFS: readonly AchievementDef[] = [
+  {
+    id: 'ach_first_order', category: 'business', name: '第一杯的心意',
+    description: '完成第 1 笔订单。',
+    condition: { type: 'completedOrders', threshold: 1 }, reward: { gold: 20 }
+  },
+  {
+    id: 'ach_orders_10', category: 'business', name: '渐入佳境',
+    description: '累计完成 10 笔订单。',
+    condition: { type: 'completedOrders', threshold: 10 }, reward: { gold: 60 }
+  },
+  {
+    id: 'ach_revenue_500', category: 'business', name: '小小营业额',
+    description: '累计营业收入达到 500 金币。',
+    condition: { type: 'totalRevenue', threshold: 500 }, reward: { gold: 80 }
+  },
+  {
+    id: 'ach_story_1', category: 'relation', name: '倾听者',
+    description: '读到第 1 段常客或店员的故事。',
+    condition: { type: 'storiesSeen', threshold: 1 }, reward: { gold: 30 }
+  },
+  {
+    id: 'ach_regular_friend', category: 'relation', name: '老街坊',
+    description: '任意 1 位常客好感达到 10。',
+    condition: { type: 'regularsFavor', count: 1, favor: 10 }, reward: { gold: 50 }
+  },
+  {
+    id: 'ach_decor_3', category: 'collection', name: '布置一新',
+    description: '拥有 3 件装修款式。',
+    condition: { type: 'ownedVariants', threshold: 3 }, reward: { gold: 40 }
+  },
+  {
+    id: 'ach_cat_poses', category: 'collection', name: '猫的睡姿收藏家',
+    description: '见过橘猫 2 种不同的睡姿。',
+    condition: { type: 'catPoses', threshold: 2 }, reward: { gold: 30 }
+  },
+  {
+    id: 'ach_lines_3', category: 'branch', name: '三线齐备', isBranchPrerequisite: true,
+    description: '三条配方线各解锁至少 1 款（分店前置）。',
+    condition: { type: 'unlockedLines', threshold: 3 }, reward: { badge: 'master_menu' }
+  },
+  {
+    id: 'ach_regulars_5', category: 'branch', name: '大家的店', isBranchPrerequisite: true,
+    description: '5 位常客好感均达到 20（分店前置）。',
+    condition: { type: 'regularsFavor', count: 5, favor: 20 }, reward: { badge: 'beloved_shop' }
+  }
+] as const;
