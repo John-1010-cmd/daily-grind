@@ -2,7 +2,8 @@ import {
   AUDIO_CONFIG,
   INITIAL_INVENTORY,
   PLAYER_CONFIG,
-  SAVE_CONFIG
+  SAVE_CONFIG,
+  ShopId
 } from '../config';
 
 export interface FundLoanState {
@@ -16,6 +17,27 @@ export interface RegularState {
   favor: number;
   visits: number;
   storiesSeen: string[];
+}
+
+export interface DecorSaveState {
+  slotVariants: Record<string, string>;
+  ownedVariants: string[];
+  ownedThemes: string[];
+  theme: string;
+}
+
+export interface ShopSaveState {
+  unlocked: boolean;
+  player: { x: number; y: number };
+  lastSettledAt: number;
+}
+
+export interface WorldSaveState {
+  activeShopId: ShopId;
+  shops: {
+    main: ShopSaveState;
+    seaside: ShopSaveState & { decor: DecorSaveState };
+  };
 }
 
 export interface SaveStateV2 {
@@ -39,12 +61,7 @@ export interface SaveStateV2 {
     muted: boolean;
   };
   // ---- M3 新增 ----
-  decor: {
-    slotVariants: Record<string, string>;
-    ownedVariants: string[];
-    ownedThemes: string[];
-    theme: string;
-  };
+  decor: DecorSaveState;
   equipmentLevel: number;
   regulars: Record<string, RegularState>;
   staff: {
@@ -67,6 +84,8 @@ export interface SaveStateV2 {
     lastGiftDate: string | null;
     decorationFragments: number;
   };
+  // ---- M5 分店链路（保持 schema v2 的向后兼容增量字段）----
+  world: WorldSaveState;
 }
 
 export type SaveStateV1Legacy = Omit<SaveStateV2, 'version' | 'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'> & { version: 1 };
@@ -120,6 +139,27 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
   cat: {
     lastGiftDate: null,
     decorationFragments: 0
+  },
+  world: {
+    activeShopId: 'main',
+    shops: {
+      main: {
+        unlocked: true,
+        player: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
+        lastSettledAt: 0
+      },
+      seaside: {
+        unlocked: false,
+        player: { x: 680, y: 680 },
+        lastSettledAt: 0,
+        decor: {
+          slotVariants: {},
+          ownedVariants: [],
+          ownedThemes: ['sea_theme_breeze'],
+          theme: 'sea_theme_breeze'
+        }
+      }
+    }
   }
 };
 
@@ -130,7 +170,7 @@ export function cloneDefaultSaveState(): SaveStateV2 {
 
 function defaultM3Fields(): Pick<
   SaveStateV2,
-  'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen' | 'cat'
+  'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen' | 'cat' | 'world'
 > {
   return {
     decor: { ...DEFAULT_SAVE_STATE.decor, slotVariants: {}, ownedVariants: [], ownedThemes: ['theme_wood'] },
@@ -141,7 +181,8 @@ function defaultM3Fields(): Pick<
     achievements: [],
     stats: { completedOrders: 0, totalRevenue: 0 },
     catPosesSeen: [],
-    cat: { lastGiftDate: null, decorationFragments: 0 }
+    cat: { lastGiftDate: null, decorationFragments: 0 },
+    world: JSON.parse(JSON.stringify(DEFAULT_SAVE_STATE.world)) as WorldSaveState
   };
 }
 
@@ -444,6 +485,49 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     }
     if (typeof cat.decorationFragments === 'number' && cat.decorationFragments >= 0) {
       m3.cat.decorationFragments = Math.floor(cat.decorationFragments);
+    }
+  }
+
+  if (obj.world && typeof obj.world === 'object' && !Array.isArray(obj.world)) {
+    const world = obj.world as Record<string, unknown>;
+    if (world.activeShopId === 'main' || world.activeShopId === 'seaside') {
+      m3.world.activeShopId = world.activeShopId;
+    }
+    if (world.shops && typeof world.shops === 'object' && !Array.isArray(world.shops)) {
+      const shops = world.shops as Record<string, unknown>;
+      for (const shopId of ['main', 'seaside'] as const) {
+        const rawShop = shops[shopId];
+        if (!rawShop || typeof rawShop !== 'object' || Array.isArray(rawShop)) continue;
+        const shop = rawShop as Record<string, unknown>;
+        const target = m3.world.shops[shopId];
+        if (typeof shop.unlocked === 'boolean') target.unlocked = shopId === 'main' || shop.unlocked;
+        if (typeof shop.lastSettledAt === 'number' && Number.isFinite(shop.lastSettledAt) && shop.lastSettledAt >= 0) {
+          target.lastSettledAt = shop.lastSettledAt;
+        }
+        if (shop.player && typeof shop.player === 'object' && !Array.isArray(shop.player)) {
+          const player = shop.player as Record<string, unknown>;
+          if (typeof player.x === 'number' && Number.isFinite(player.x)) target.player.x = player.x;
+          if (typeof player.y === 'number' && Number.isFinite(player.y)) target.player.y = player.y;
+        }
+        if (shopId === 'seaside' && shop.decor && typeof shop.decor === 'object' && !Array.isArray(shop.decor)) {
+          const decor = shop.decor as Record<string, unknown>;
+          const targetDecor = m3.world.shops.seaside.decor;
+          if (decor.slotVariants && typeof decor.slotVariants === 'object' && !Array.isArray(decor.slotVariants)) {
+            for (const [key, value] of Object.entries(decor.slotVariants as Record<string, unknown>)) {
+              if (typeof value === 'string') targetDecor.slotVariants[key] = value;
+            }
+          }
+          if (Array.isArray(decor.ownedVariants)) {
+            targetDecor.ownedVariants = decor.ownedVariants.filter((value): value is string => typeof value === 'string');
+          }
+          if (Array.isArray(decor.ownedThemes)) {
+            const themes = decor.ownedThemes.filter((value): value is string => typeof value === 'string');
+            if (themes.length > 0) targetDecor.ownedThemes = themes;
+          }
+          if (typeof decor.theme === 'string') targetDecor.theme = decor.theme;
+        }
+      }
+      if (!m3.world.shops.seaside.unlocked) m3.world.activeShopId = 'main';
     }
   }
 

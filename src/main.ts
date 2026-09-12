@@ -2,31 +2,28 @@ import { Application, Assets, Graphics } from 'pixi.js';
 import { CORE_PIXI_ASSETS } from './assets/preload';
 import { GameClock } from './clock';
 import {
-  DECOR_SLOTS,
-  NAV_EDGES,
-  NAV_WAYPOINTS,
-  PLAYER_CONFIG,
   REGULAR_CONFIG,
   REGULAR_DEFS,
   SCREEN_CONFIG,
-  STAFF_CONFIG
+  SHOP_SCENES,
+  STAFF_CONFIG,
+  ShopId
 } from './config';
 import { AchievementManager } from './achievements';
 import { AudioManager } from './audio';
-import { Customer, CustomerManager } from './customer';
+import { Customer } from './customer';
 import { CatInteractionManager } from './cat';
-import { DecorManager } from './decor';
 import { EconomyLedger } from './economy';
 import { EquipmentManager } from './equipment';
 import { DreamFundManager, FundMetrics } from './fund';
 import { InventoryManager } from './inventory';
-import { NOOP_LATTE_ART_HOOK, OrderStateMachine, toLatteArtEvent } from './order';
+import { NOOP_LATTE_ART_HOOK, toLatteArtEvent } from './order';
 import { RegularManager } from './regulars';
 import { SaveManager } from './save';
 import { GreyboxScene } from './scene/greybox';
 import { CustomerCharacter } from './scene/customerCharacter';
 import { LightingSystem } from './scene/lighting';
-import { NavGraph } from './scene/nav';
+import { createShopRuntime, ShopRuntime } from './shop';
 import { StaffMember } from './staff';
 import {
   DecorModal,
@@ -68,20 +65,35 @@ async function bootstrap() {
   const offlineHours = (offlineElapsedSeconds / 3600).toFixed(1);
 
   // 4. Navigation Graph & Core Order/Customer Systems (T1.1 & T1.2)
-  const navGraph = new NavGraph(NAV_WAYPOINTS, NAV_EDGES);
-  const orderStateMachine = new OrderStateMachine(inventory, ledger, saveManager);
-  const customerManager = new CustomerManager(navGraph, inventory, orderStateMachine);
-  orderStateMachine.setBrewStartedHook((order) => {
+  const mainRuntime = createShopRuntime(SHOP_SCENES.main, inventory, ledger, saveManager);
+  const seasideRuntime = createShopRuntime(SHOP_SCENES.seaside, inventory, ledger, saveManager);
+  const shopRuntimes: Record<ShopId, ShopRuntime> = {
+    main: mainRuntime,
+    seaside: seasideRuntime
+  };
+  const savedActiveShopId = initialSave.world.activeShopId;
+  let activeShopId: ShopId =
+    savedActiveShopId === 'seaside' && initialSave.world.shops.seaside.unlocked
+      ? 'seaside'
+      : 'main';
+  let activeRuntime = shopRuntimes[activeShopId];
+  let navGraph = activeRuntime.navGraph;
+  let orderStateMachine = activeRuntime.orderStateMachine;
+  let customerManager = activeRuntime.customerManager;
+
+  const connectLatteArtHook = (runtime: ShopRuntime) => runtime.orderStateMachine.setBrewStartedHook((order) => {
     if (order.recipe.id.startsWith(REGULAR_CONFIG.EXCLUSIVE_RECIPE_PREFIX)) {
       NOOP_LATTE_ART_HOOK.onExclusiveDrinkBrewStarted(toLatteArtEvent(order));
     }
   });
+  connectLatteArtHook(mainRuntime);
+  connectLatteArtHook(seasideRuntime);
 
   // 4.5 M3 长线系统：基金 / 设备 / 常客 / 店员 / 装修 / 成就
   const fundManager = new DreamFundManager(saveManager);
   const equipmentManager = new EquipmentManager(saveManager);
   const regularManager = new RegularManager(saveManager);
-  const decorManager = new DecorManager(saveManager);
+  let decorManager = activeRuntime.decorManager;
   const achievementManager = new AchievementManager(saveManager, ledger);
   const catInteractionManager = new CatInteractionManager(saveManager, ledger);
 
@@ -105,7 +117,9 @@ async function bootstrap() {
       totalRevenue: state.stats.totalRevenue,
       unlockedRecipeIds: state.unlockedRecipes,
       regulars: state.regulars,
-      ownedVariantCount: decorManager.getOwnedVariantCount(),
+      ownedVariantCount:
+        mainRuntime.decorManager.getOwnedVariantCount() +
+        seasideRuntime.decorManager.getOwnedVariantCount(),
       catPoseCount: state.catPosesSeen.length,
       storiesSeenCount:
         regularManager.getTotalStoriesSeen() + state.staff.storiesSeen.length
@@ -117,13 +131,13 @@ async function bootstrap() {
   };
 
   const staffMember = new StaffMember({
-    orderStateMachine,
-    customerManager,
+    orderStateMachine: mainRuntime.orderStateMachine,
+    customerManager: mainRuntime.customerManager,
     inventory,
     ledger,
     saveManager,
     getBrewSlots: () => equipmentManager.getBrewSlots(),
-    routeToExit: (from) => navGraph.route(from, { x: 520, y: 550 }),
+    routeToExit: (from) => mainRuntime.navGraph.route(from, SHOP_SCENES.main.customerExit),
     onStoryUnlocked: (chapter) => {
       storyModalRef.current?.enqueue({
         portraitIcon: '🧑‍🎨',
@@ -145,7 +159,7 @@ async function bootstrap() {
   });
 
   // 常客接入顾客生成与点单
-  customerManager.setRegularHooks({
+  mainRuntime.customerManager.setRegularHooks({
     pickRegular: (activeRegularIds) => {
       if (Math.random() >= REGULAR_CONFIG.SPAWN_CHANCE) return null;
       const candidates = REGULAR_DEFS.filter((d) => !activeRegularIds.has(d.id));
@@ -245,9 +259,7 @@ async function bootstrap() {
   }
 
   // 8. Build Greybox Scene & Lighting
-  const initialPlayerPos = initialSave.player && Number.isFinite(initialSave.player.x)
-    ? initialSave.player
-    : { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y };
+  const initialPlayerPos = initialSave.world.shops[activeShopId].player;
 
   let greyboxScene!: GreyboxScene;
 
@@ -367,7 +379,7 @@ async function bootstrap() {
         }
 
         // M3 装修：点击家具直接轮换已拥有款式 (T3.1)
-        const decorSlot = DECOR_SLOTS.find((s) => s.sceneObjectId === obj.id);
+        const decorSlot = decorManager.getSlots().find((s) => s.sceneObjectId === obj.id);
         if (decorSlot) {
           const next = decorManager.cycleVariant(decorSlot.id);
           if (next) {
@@ -382,10 +394,11 @@ async function bootstrap() {
       },
 
       onPositionChanged: (pos) => {
-        saveManager.setPlayerPosition(Math.round(pos.x), Math.round(pos.y));
+        saveManager.setShopPlayerPosition(activeShopId, Math.round(pos.x), Math.round(pos.y));
       }
     },
-    initialSave.settings.debugNavOverlay
+    initialSave.settings.debugNavOverlay,
+    activeRuntime.scene
   );
 
   greyboxScene.setCustomerManager(customerManager);
@@ -426,7 +439,7 @@ async function bootstrap() {
         greyboxScene.setDebugVisible(enabled);
       },
       onResetGame: () => {
-        const resetPos = { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y };
+        const resetPos = SHOP_SCENES[activeShopId].playerStart;
         greyboxScene.setPlayerPosition(resetPos);
         gameClock.setActivePlayTime(0);
         gameClock.alignWithWallClock();
@@ -517,9 +530,11 @@ async function bootstrap() {
     orderStateMachine.brewSpeedMultiplier = equipmentManager.getBrewSpeedMultiplier();
 
     // M3 店员自动干活
-    staffMember.update(deltaSeconds);
-    staffFigure.container.visible = staffMember.isHired();
-    if (staffMember.isHired()) {
+    if (activeShopId === 'main') {
+      staffMember.update(deltaSeconds);
+    }
+    staffFigure.container.visible = activeShopId === 'main' && staffMember.isHired();
+    if (activeShopId === 'main' && staffMember.isHired()) {
       staffFigure.update(deltaSeconds, staffMember.isBusy(), 'left');
     }
 
@@ -536,7 +551,10 @@ async function bootstrap() {
 
     // Update scene & lighting
     greyboxScene.update(deltaSeconds);
-    if (catInteractionManager.recordPose(greyboxScene.getCatComponent().getCurrentPose())) {
+    if (
+      activeShopId === 'main' &&
+      catInteractionManager.recordPose(greyboxScene.getCatComponent().getCurrentPose())
+    ) {
       runAchievementCheck();
     }
     const currentPeriod = lightingSystem.update(deltaSeconds);
@@ -585,7 +603,7 @@ async function bootstrap() {
 
       // M3：记录见过的猫睡姿（猫咪图鉴 + 成就）
       const pose = greyboxScene.getCatComponent().getCurrentPose();
-      if (!saveManager.getState().catPosesSeen.includes(pose)) {
+      if (activeShopId === 'main' && !saveManager.getState().catPosesSeen.includes(pose)) {
         saveManager.updateState((draft) => {
           draft.catPosesSeen.push(pose);
         });

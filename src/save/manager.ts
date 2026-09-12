@@ -1,4 +1,5 @@
 import { SAVE_CONFIG } from '../config';
+import { ShopId } from '../config';
 import {
   cloneDefaultSaveState,
   SaveStateV2,
@@ -57,6 +58,17 @@ export class SaveManager {
     this.updateState((draft) => {
       draft.player.x = x;
       draft.player.y = y;
+    });
+  }
+
+  public setShopPlayerPosition(shopId: ShopId, x: number, y: number): void {
+    this.updateState((draft) => {
+      draft.world.shops[shopId].player.x = x;
+      draft.world.shops[shopId].player.y = y;
+      if (shopId === 'main') {
+        draft.player.x = x;
+        draft.player.y = y;
+      }
     });
   }
 

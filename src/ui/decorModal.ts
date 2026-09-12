@@ -1,4 +1,4 @@
-import { CAT_GIFT_CONFIG, DECOR_THEMES } from '../config';
+import { CAT_GIFT_CONFIG } from '../config';
 import { DecorManager } from '../decor';
 import { EconomyLedger } from '../economy';
 import { DreamFundManager, FundMetrics } from '../fund';
@@ -44,6 +44,11 @@ export class DecorModal {
     if (this.isOpen) return;
     this.isOpen = true;
     this.render();
+  }
+
+  public setDecorManager(decorManager: DecorManager): void {
+    this.decorManager = decorManager;
+    if (this.isOpen) this.render();
   }
 
   public close(): void {
@@ -119,7 +124,7 @@ export class DecorModal {
 
     // 主题色调
     let themesHtml = '';
-    for (const theme of DECOR_THEMES) {
+    for (const theme of this.decorManager.getThemes()) {
       const owned = this.decorManager.isThemeOwned(theme.id);
       const selected = this.decorManager.getTheme().id === theme.id;
       const cls = selected ? 'selected' : owned ? '' : 'locked';

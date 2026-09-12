@@ -4,10 +4,14 @@ import {
   CAT_GIFT_CONFIG,
   DecorSlotDef,
   DecorThemeDef,
-  DecorVariantDef
+  DecorVariantDef,
+  SEASIDE_DECOR_SLOTS,
+  SEASIDE_DECOR_THEMES,
+  ShopId
 } from '../config';
 import { EconomyLedger } from '../economy';
 import { SaveManager } from '../save';
+import { DecorSaveState, SaveStateV2 } from '../save/schema';
 
 /**
  * 装修系统（T3.1）：固定槽位 + 款式变体 + 整店主题色调。
@@ -15,17 +19,35 @@ import { SaveManager } from '../save';
  */
 export class DecorManager {
   private saveManager: SaveManager;
+  private shopId: ShopId;
+  private slots: readonly DecorSlotDef[];
+  private themes: readonly DecorThemeDef[];
 
-  constructor(saveManager: SaveManager) {
+  constructor(saveManager: SaveManager, shopId: ShopId = 'main') {
     this.saveManager = saveManager;
+    this.shopId = shopId;
+    this.slots = shopId === 'main' ? DECOR_SLOTS : SEASIDE_DECOR_SLOTS;
+    this.themes = shopId === 'main' ? DECOR_THEMES : SEASIDE_DECOR_THEMES;
+  }
+
+  private getDecorState(state: Readonly<SaveStateV2> = this.saveManager.getState()): DecorSaveState {
+    return this.shopId === 'main' ? state.decor : state.world.shops.seaside.decor;
+  }
+
+  private updateDecor(updater: (decor: DecorSaveState) => void): void {
+    this.saveManager.updateState((draft) => updater(this.getDecorState(draft)));
   }
 
   public getSlots(): readonly DecorSlotDef[] {
-    return DECOR_SLOTS;
+    return this.slots;
+  }
+
+  public getThemes(): readonly DecorThemeDef[] {
+    return this.themes;
   }
 
   public getSlot(slotId: string): DecorSlotDef | undefined {
-    return DECOR_SLOTS.find((s) => s.id === slotId);
+    return this.slots.find((s) => s.id === slotId);
   }
 
   public getDefaultVariant(slot: DecorSlotDef): DecorVariantDef {
@@ -34,7 +56,7 @@ export class DecorManager {
 
   public getSelectedVariantId(slotId: string): string {
     const slot = this.getSlot(slotId);
-    const saved = this.saveManager.getState().decor.slotVariants[slotId];
+    const saved = this.getDecorState().slotVariants[slotId];
     if (slot && saved && slot.variants.some((v) => v.id === saved)) {
       return saved;
     }
@@ -53,13 +75,13 @@ export class DecorManager {
     const variant = slot?.variants.find((v) => v.id === variantId);
     if (!variant) return false;
     if (variant.cost <= 0) return true; // 默认款式永远拥有
-    return this.saveManager.getState().decor.ownedVariants.includes(variantId);
+    return this.getDecorState().ownedVariants.includes(variantId);
   }
 
   /** 已拥有款式总数（含默认款，成就统计用） */
   public getOwnedVariantCount(): number {
     let count = 0;
-    for (const slot of DECOR_SLOTS) {
+    for (const slot of this.slots) {
       for (const v of slot.variants) {
         if (this.isVariantOwned(slot.id, v.id)) count++;
       }
@@ -77,17 +99,17 @@ export class DecorManager {
     }
 
     ledger.settleDecorPurchase(variant.name, variant.cost);
-    this.saveManager.updateState((draft) => {
-      draft.decor.ownedVariants.push(variantId);
-      draft.decor.slotVariants[slotId] = variantId; // 购买即换上
+    this.updateDecor((decor) => {
+      decor.ownedVariants.push(variantId);
+      decor.slotVariants[slotId] = variantId; // 购买即换上
     });
     return { ok: true };
   }
 
   public selectVariant(slotId: string, variantId: string): boolean {
     if (!this.isVariantOwned(slotId, variantId)) return false;
-    this.saveManager.updateState((draft) => {
-      draft.decor.slotVariants[slotId] = variantId;
+    this.updateDecor((decor) => {
+      decor.slotVariants[slotId] = variantId;
     });
     return true;
   }
@@ -104,8 +126,9 @@ export class DecorManager {
     }
     this.saveManager.updateState((draft) => {
       draft.cat.decorationFragments -= CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST;
-      if (!draft.decor.ownedVariants.includes(variantId)) draft.decor.ownedVariants.push(variantId);
-      draft.decor.slotVariants[slotId] = variantId;
+      const decor = this.getDecorState(draft);
+      if (!decor.ownedVariants.includes(variantId)) decor.ownedVariants.push(variantId);
+      decor.slotVariants[slotId] = variantId;
     });
     return { ok: true };
   }
@@ -126,36 +149,36 @@ export class DecorManager {
   // ---------- 主题色调 ----------
 
   public getTheme(): DecorThemeDef {
-    const id = this.saveManager.getState().decor.theme;
-    return DECOR_THEMES.find((t) => t.id === id) ?? DECOR_THEMES[0];
+    const id = this.getDecorState().theme;
+    return this.themes.find((t) => t.id === id) ?? this.themes[0];
   }
 
   public isThemeOwned(themeId: string): boolean {
-    const theme = DECOR_THEMES.find((t) => t.id === themeId);
+    const theme = this.themes.find((t) => t.id === themeId);
     if (!theme) return false;
     if (theme.cost <= 0) return true;
-    return this.saveManager.getState().decor.ownedThemes.includes(themeId);
+    return this.getDecorState().ownedThemes.includes(themeId);
   }
 
   public purchaseTheme(themeId: string, ledger: EconomyLedger): { ok: boolean; reason?: string } {
-    const theme = DECOR_THEMES.find((t) => t.id === themeId);
+    const theme = this.themes.find((t) => t.id === themeId);
     if (!theme) return { ok: false, reason: '主题不存在' };
     if (this.isThemeOwned(themeId)) return { ok: false, reason: '已拥有该主题' };
     if (ledger.getBalance() < theme.cost) {
       return { ok: false, reason: `金币不足（需 🪙${theme.cost}）` };
     }
     ledger.settleDecorPurchase(`${theme.name}（主题色调）`, theme.cost);
-    this.saveManager.updateState((draft) => {
-      draft.decor.ownedThemes.push(themeId);
-      draft.decor.theme = themeId;
+    this.updateDecor((decor) => {
+      decor.ownedThemes.push(themeId);
+      decor.theme = themeId;
     });
     return { ok: true };
   }
 
   public selectTheme(themeId: string): boolean {
     if (!this.isThemeOwned(themeId)) return false;
-    this.saveManager.updateState((draft) => {
-      draft.decor.theme = themeId;
+    this.updateDecor((decor) => {
+      decor.theme = themeId;
     });
     return true;
   }
