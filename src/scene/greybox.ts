@@ -1,9 +1,12 @@
 import {
   Container,
   Graphics,
+  Sprite,
   Text,
-  TextStyle
+  TextStyle,
+  Texture
 } from 'pixi.js';
+import sceneBaseUrl from '../assets/scene/scene-base.webp';
 import {
   NAV_EDGES,
   NAV_WAYPOINTS,
@@ -15,6 +18,7 @@ import {
   WALKABLE_ZONES
 } from '../config';
 import { Customer, CustomerManager } from '../customer';
+import { CatComponent } from './catComponent';
 import {
   NavGraph,
   clampToWalkable,
@@ -22,10 +26,12 @@ import {
   findHitObject,
   isPointInWalkable
 } from './nav';
+import { OwnerCharacter } from './ownerCharacter';
 
 export interface GreyboxCallbacks {
   onObjectInteract: (obj: SceneObjectConfig) => void;
   onCustomerInteract?: (customer: Customer) => void;
+  onCatInteract?: (cat: CatComponent) => void;
   onPositionChanged: (pos: Point) => void;
 }
 
@@ -37,12 +43,14 @@ export class GreyboxScene {
   private playerLayer: Container;
   private debugLayer: Container;
 
-  private playerGraphic: Graphics;
+  private ownerCharacter: OwnerCharacter;
+  private catComponent: CatComponent;
   private customersGraphic: Graphics;
   private playerPos: Point;
   private targetPath: Point[] = [];
   private pendingInteractObject: SceneObjectConfig | null = null;
   private pendingCustomer: Customer | null = null;
+  private pendingCat: boolean = false;
   private facing: 'left' | 'right' = 'right';
 
   private navGraph: NavGraph;
@@ -79,18 +87,26 @@ export class GreyboxScene {
     this.container.addChild(this.playerLayer);
     this.container.addChild(this.debugLayer);
 
-    this.playerGraphic = new Graphics();
-    this.playerLayer.addChild(this.playerGraphic);
+    // 1. Finished Watercolor Scene Base (T2.3)
+    this.buildSceneBackground();
 
+    // 2. Finished Cat Component (T2.6)
+    this.catComponent = new CatComponent();
+    this.objectsLayer.addChild(this.catComponent.container);
+
+    // 3. Customer Rendering Layer
     this.customersGraphic = new Graphics();
     this.customersLayer.addChild(this.customersGraphic);
 
+    // 4. Finished Owner Character with Procedural Tweening (T2.4 & T2.5)
+    this.ownerCharacter = new OwnerCharacter();
+    this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
+    this.playerLayer.addChild(this.ownerCharacter.container);
+
+    // Click feedback
     this.clickFeedbackGraphic = new Graphics();
     this.container.addChild(this.clickFeedbackGraphic);
 
-    this.buildEnvironment();
-    this.buildObjects();
-    this.drawPlayer();
     this.updateDebugOverlay();
   }
 
@@ -98,144 +114,15 @@ export class GreyboxScene {
     this.customerManager = mgr;
   }
 
-  private buildEnvironment(): void {
-    const bg = new Graphics();
-
-    // Wall (upper area)
-    bg.rect(0, 0, SCREEN_CONFIG.DESIGN_WIDTH, 520);
-    bg.fill(0xd9c5b2);
-
-    // Brick / wood wainscot
-    bg.rect(0, 420, SCREEN_CONFIG.DESIGN_WIDTH, 100);
-    bg.fill(0xbfa588);
-
-    // Wooden Floor (lower area)
-    bg.rect(0, 520, SCREEN_CONFIG.DESIGN_WIDTH, SCREEN_CONFIG.DESIGN_HEIGHT - 520);
-    bg.fill(0xecd8be);
-
-    // Floor wood plank lines
-    for (let y = 550; y < SCREEN_CONFIG.DESIGN_HEIGHT; y += 45) {
-      bg.moveTo(0, y);
-      bg.lineTo(SCREEN_CONFIG.DESIGN_WIDTH, y);
-      bg.stroke({ width: 1.5, color: 0xd6be9e });
-    }
-
-    // Ceiling string lights wire
-    bg.moveTo(200, 140);
-    bg.bezierCurveTo(450, 190, 800, 110, 1280, 130);
-    bg.stroke({ width: 2, color: 0x3d2b1f });
-
-    // Light bulbs along the wire
-    const bulbPositions = [
-      { x: 340, y: 165 },
-      { x: 520, y: 168 },
-      { x: 700, y: 140 },
-      { x: 890, y: 118 },
-      { x: 1080, y: 122 }
-    ];
-    for (const bulb of bulbPositions) {
-      bg.circle(bulb.x, bulb.y, 8);
-      bg.fill(0xffeaa7);
-      bg.stroke({ width: 1.5, color: 0xd4a373 });
-    }
-
-    this.backgroundLayer.addChild(bg);
+  public getCatComponent(): CatComponent {
+    return this.catComponent;
   }
 
-  private buildObjects(): void {
-    const labelStyle = new TextStyle({
-      fontFamily: 'sans-serif',
-      fontSize: 13,
-      fontWeight: 'bold',
-      fill: 0xffffff,
-      dropShadow: {
-        alpha: 0.8,
-        blur: 3,
-        color: 0x000000,
-        distance: 1
-      }
-    });
-
-    for (const obj of SCENE_OBJECTS) {
-      const g = new Graphics();
-
-      // Main rectangle
-      g.roundRect(obj.x, obj.y, obj.width, obj.height, 8);
-      g.fill(obj.color);
-      g.stroke({ width: 2, color: 0x2b1d12 });
-
-      // Special details for key objects
-      if (obj.id === 'window') {
-        // Window frame dividers
-        g.rect(obj.x + 10, obj.y + 10, obj.width - 20, obj.height - 20);
-        g.stroke({ width: 4, color: 0x6e4e37 });
-        g.moveTo(obj.x + obj.width / 2, obj.y);
-        g.lineTo(obj.x + obj.width / 2, obj.y + obj.height);
-        g.stroke({ width: 3, color: 0x6e4e37 });
-        g.moveTo(obj.x, obj.y + obj.height / 2);
-        g.lineTo(obj.x + obj.width, obj.y + obj.height / 2);
-        g.stroke({ width: 3, color: 0x6e4e37 });
-      } else if (obj.id === 'cat_cushion') {
-        // Cat cushion and cute sleeping cat shape
-        g.ellipse(obj.x + obj.width / 2, obj.y + obj.height / 2, obj.width / 2 - 4, obj.height / 2 - 4);
-        g.fill(0xff9f43);
-        // Cat ears
-        g.poly([
-          { x: obj.x + 30, y: obj.y + 20 },
-          { x: obj.x + 45, y: obj.y + 5 },
-          { x: obj.x + 60, y: obj.y + 20 }
-        ]);
-        g.fill(0xee5253);
-      } else if (obj.id === 'counter') {
-        // Counter top wooden trim
-        g.rect(obj.x - 5, obj.y - 4, obj.width + 10, 16);
-        g.fill(0x5c3818);
-      }
-
-      this.objectsLayer.addChild(g);
-
-      // Label text
-      const txt = new Text({
-        text: obj.name,
-        style: labelStyle
-      });
-      txt.anchor.set(0.5, 0.5);
-      txt.x = obj.x + obj.width / 2;
-      txt.y = obj.y + Math.min(24, obj.height / 2);
-      this.objectsLayer.addChild(txt);
-    }
-  }
-
-  private drawPlayer(): void {
-    this.playerGraphic.clear();
-
-    const w = PLAYER_CONFIG.WIDTH;
-    const h = PLAYER_CONFIG.HEIGHT;
-
-    // Shadow
-    this.playerGraphic.ellipse(0, h / 2 + 2, w / 2 + 4, 6);
-    this.playerGraphic.fill({ color: 0x000000, alpha: 0.25 });
-
-    // Barista body / clothes
-    this.playerGraphic.roundRect(-w / 2, -h / 2, w, h, 6);
-    this.playerGraphic.fill(PLAYER_CONFIG.COLOR);
-    this.playerGraphic.stroke({ width: 2, color: 0x1a3324 });
-
-    // Barista Apron
-    this.playerGraphic.roundRect(-w / 2 + 4, -h / 4, w - 8, h * 0.55, 4);
-    this.playerGraphic.fill(0xe0a96d);
-
-    // Barista Cap / Head detail
-    this.playerGraphic.roundRect(-w / 2 + 2, -h / 2 - 6, w - 4, 10, 3);
-    this.playerGraphic.fill(PLAYER_CONFIG.ACCENT_COLOR);
-
-    // Face / direction indicator
-    const eyeOffset = this.facing === 'right' ? 4 : -4;
-    this.playerGraphic.circle(eyeOffset, -h / 2 + 8, 2.5);
-    this.playerGraphic.fill(0xffffff);
-
-    this.playerGraphic.x = this.playerPos.x;
-    this.playerGraphic.y = this.playerPos.y;
+  private buildSceneBackground(): void {
+    const bgSprite = Sprite.from(Texture.from(sceneBaseUrl));
+    bgSprite.width = SCREEN_CONFIG.DESIGN_WIDTH;
+    bgSprite.height = SCREEN_CONFIG.DESIGN_HEIGHT;
+    this.backgroundLayer.addChild(bgSprite);
   }
 
   private drawCustomers(): void {
@@ -300,10 +187,23 @@ export class GreyboxScene {
 
     const g = new Graphics();
 
+    const labelStyle = new TextStyle({
+      fontFamily: 'sans-serif',
+      fontSize: 12,
+      fontWeight: 'bold',
+      fill: 0xffffff,
+      dropShadow: {
+        alpha: 0.8,
+        blur: 3,
+        color: 0x000000,
+        distance: 1
+      }
+    });
+
     // 1. Draw Walkable Zones in translucent emerald green
     for (const zone of WALKABLE_ZONES) {
       g.rect(zone.x, zone.y, zone.width, zone.height);
-      g.fill({ color: 0x2ecc71, alpha: 0.2 });
+      g.fill({ color: 0x2ecc71, alpha: 0.18 });
       g.stroke({ width: 1.5, color: 0x27ae60 });
     }
 
@@ -317,6 +217,15 @@ export class GreyboxScene {
       g.circle(obj.interactPoint.x, obj.interactPoint.y, 6);
       g.fill(0xe74c3c);
       g.stroke({ width: 1.5, color: 0xffffff });
+
+      const txt = new Text({
+        text: obj.name,
+        style: labelStyle
+      });
+      txt.anchor.set(0.5, 0.5);
+      txt.x = obj.x + obj.width / 2;
+      txt.y = obj.y + Math.min(24, obj.height / 2);
+      this.debugLayer.addChild(txt);
     }
 
     // 3. Draw Nav Edges in cyan
@@ -355,13 +264,33 @@ export class GreyboxScene {
     // Trigger visual click ripple
     this.showClickRipple(pt);
 
-    // Rule 1: Object / Customer prioritized over empty ground move
-    // 1A. Check if clicked directly on or near an active customer
+    // Rule 1: Cat / Customer / Object prioritized over empty ground move
+    // 1A. Check if clicked near Cat
+    const catSpot = this.catComponent.getCurrentSpot();
+    if (distance(pt, catSpot.pos) <= 50) {
+      const d = distance(this.playerPos, catSpot.interactPoint);
+      if (d <= 36) {
+        this.targetPath = [];
+        this.callbacks.onCatInteract?.(this.catComponent);
+        this.pendingCat = false;
+        this.updateDebugOverlay();
+        return;
+      }
+      this.pendingCat = true;
+      this.pendingCustomer = null;
+      this.pendingInteractObject = null;
+      this.targetPath = this.navGraph.route(this.playerPos, catSpot.interactPoint);
+      this.updateDebugOverlay();
+      return;
+    }
+
+    // 1B. Check if clicked directly on or near an active customer
     if (this.customerManager) {
       for (const c of this.customerManager.getCustomers()) {
         if (c.state === 'LEFT' || c.state === 'LEAVING') continue;
         if (distance(pt, c.pos) <= 45) {
           this.pendingCustomer = c;
+          this.pendingCat = false;
           this.pendingInteractObject = null;
           const d = distance(this.playerPos, c.seat.interactPoint);
           if (d <= 36) {
@@ -378,14 +307,33 @@ export class GreyboxScene {
       }
     }
 
-    // 1B. Check if clicked on a scene object
+    // 1C. Check if clicked on a scene object
     const hit = findHitObject(pt);
     if (hit) {
-      // If clicked on a table that currently has a customer, route to serve/checkout that customer
+      // If clicked on cat cushion or table with cat
+      if (hit.id === 'cat_cushion' || (hit.id === 'cat_and_table_4' && catSpot.id === 'spot_table_4')) {
+        const d = distance(this.playerPos, catSpot.interactPoint);
+        if (d <= 36) {
+          this.targetPath = [];
+          this.callbacks.onCatInteract?.(this.catComponent);
+          this.pendingCat = false;
+          this.updateDebugOverlay();
+          return;
+        }
+        this.pendingCat = true;
+        this.pendingCustomer = null;
+        this.pendingInteractObject = null;
+        this.targetPath = this.navGraph.route(this.playerPos, catSpot.interactPoint);
+        this.updateDebugOverlay();
+        return;
+      }
+
+      // If clicked on a table that currently has a customer
       if (this.customerManager) {
         const tableCustomer = this.customerManager.getCustomerByTable(hit.id);
         if (tableCustomer) {
           this.pendingCustomer = tableCustomer;
+          this.pendingCat = false;
           this.pendingInteractObject = null;
           const d = distance(this.playerPos, tableCustomer.seat.interactPoint);
           if (d <= 36) {
@@ -403,8 +351,8 @@ export class GreyboxScene {
 
       this.pendingInteractObject = hit;
       this.pendingCustomer = null;
+      this.pendingCat = false;
       const d = distance(this.playerPos, hit.interactPoint);
-      // If already at interact point, trigger immediately
       if (d <= 36) {
         this.targetPath = [];
         this.callbacks.onObjectInteract(hit);
@@ -412,7 +360,6 @@ export class GreyboxScene {
         this.updateDebugOverlay();
         return;
       }
-      // Rule 3: Automatically move to interaction point
       this.targetPath = this.navGraph.route(this.playerPos, hit.interactPoint);
       this.updateDebugOverlay();
       return;
@@ -421,6 +368,7 @@ export class GreyboxScene {
     // Rule 2: Click on empty ground moves to position
     this.pendingInteractObject = null;
     this.pendingCustomer = null;
+    this.pendingCat = false;
     const targetPoint = clampToWalkable(pt);
     this.targetPath = this.navGraph.route(this.playerPos, targetPoint);
     this.updateDebugOverlay();
@@ -435,6 +383,7 @@ export class GreyboxScene {
         this.targetPath = [];
         this.pendingInteractObject = null;
         this.pendingCustomer = null;
+        this.pendingCat = false;
         this.updateDebugOverlay();
       }
     }
@@ -450,11 +399,12 @@ export class GreyboxScene {
     this.clickFeedbackGraphic.stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
     this.clickFeedbackGraphic.x = 0;
     this.clickFeedbackGraphic.y = 0;
-    this.clickFeedbackTime = 0.25; // seconds
+    this.clickFeedbackTime = 0.25;
   }
 
   public update(deltaSeconds: number): void {
     this.drawCustomers();
+    this.catComponent.update(deltaSeconds);
 
     if (this.clickFeedbackTime > 0) {
       this.clickFeedbackTime -= deltaSeconds;
@@ -462,6 +412,8 @@ export class GreyboxScene {
         this.clickFeedbackGraphic.clear();
       }
     }
+
+    let isMoving = false;
 
     // 1. Check WASD movement
     if (this.keysPressed.size > 0) {
@@ -500,16 +452,14 @@ export class GreyboxScene {
         }
 
         if (moved) {
-          this.drawPlayer();
+          isMoving = true;
+          this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
           this.callbacks.onPositionChanged(this.playerPos);
           if (this.isDebugVisible) this.updateDebugOverlay();
         }
       }
-      return;
-    }
-
-    // 2. Click-to-move along targetPath
-    if (this.targetPath.length > 0) {
+    } else if (this.targetPath.length > 0) {
+      // 2. Click-to-move along targetPath
       const nextTarget = this.targetPath[0];
       const dist = distance(this.playerPos, nextTarget);
       const step = PLAYER_CONFIG.SPEED * deltaSeconds;
@@ -518,14 +468,15 @@ export class GreyboxScene {
       else if (nextTarget.x < this.playerPos.x - 2) this.facing = 'left';
 
       if (dist <= step) {
-        // Arrived at current waypoint
         this.playerPos.x = nextTarget.x;
         this.playerPos.y = nextTarget.y;
         this.targetPath.shift();
 
         if (this.targetPath.length === 0) {
-          // Reached final destination!
-          if (this.pendingCustomer) {
+          if (this.pendingCat) {
+            this.callbacks.onCatInteract?.(this.catComponent);
+            this.pendingCat = false;
+          } else if (this.pendingCustomer) {
             this.callbacks.onCustomerInteract?.(this.pendingCustomer);
             this.pendingCustomer = null;
           } else if (this.pendingInteractObject) {
@@ -537,14 +488,18 @@ export class GreyboxScene {
         const angle = Math.atan2(nextTarget.y - this.playerPos.y, nextTarget.x - this.playerPos.x);
         this.playerPos.x += Math.cos(angle) * step;
         this.playerPos.y += Math.sin(angle) * step;
+        isMoving = true;
       }
 
-      this.drawPlayer();
+      this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
       this.callbacks.onPositionChanged(this.playerPos);
       if (this.isDebugVisible) {
         this.updateDebugOverlay();
       }
     }
+
+    // Update procedural animation on owner character
+    this.ownerCharacter.update(deltaSeconds, isMoving, this.facing);
   }
 
   public getPlayerPosition(): Point {
@@ -556,7 +511,8 @@ export class GreyboxScene {
     this.targetPath = [];
     this.pendingInteractObject = null;
     this.pendingCustomer = null;
-    this.drawPlayer();
+    this.pendingCat = false;
+    this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
     if (this.isDebugVisible) {
       this.updateDebugOverlay();
     }

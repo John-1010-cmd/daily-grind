@@ -150,6 +150,11 @@ async function bootstrap() {
         }
       },
 
+      onCatInteract: (cat) => {
+        const res = cat.pet();
+        toastManager.show(`🐱【橘猫】${res.text}`);
+      },
+
       onObjectInteract: (obj) => {
         // Counter or Espresso machine
         if (obj.id === 'counter' || obj.id === 'espresso_machine' || obj.id === 'pastry_case') {

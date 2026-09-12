@@ -1,0 +1,112 @@
+# Daily Grind 美术管线与资产规范 (Art Pipeline & Asset Standards)
+
+> 对应里程碑：M2 美术管线首跑  
+> 风格锚点：`style-reference.png`（手绘水彩温暖咖啡馆，治愈系插画风）  
+> 状态：M2 定稿生效
+
+---
+
+## 1. 管线工具与工作流 (T2.1)
+
+### 1.1 出图与评审链路
+- **出图引擎**：本地 CLIProxyAPI (CPA) 代理 `gpt-image-2` 模型（端点：`http://127.0.0.1:8317/v1/images/generations` 与 `/v1/images/edits`）。
+- **执行脚本**：`node C:/Users/developer/.kimi-code/skills/gpt-image-review/gen-image.js`。
+- **一致性保证 (垫图编辑)**：系列资产或动作衍生时，传入 `--ref <上轮参考图>`，保持色彩笔触与形体一致性。
+- **评审机制**：通过多模态图像审视工具对生成结果进行结构、色彩、透视与构图评分（满分 10 分，通过门槛 $\ge 8.0$ 分）。
+- **返工与兜底限制**：单资产最多进行 3～5 轮返工迭代；若 AI 直出存在边缘瑕疵，通过程序图像后处理（抠图、边缘柔化、水彩纸纹理混合、色彩映射）进行合成，不苛求 AI 单次直出绝对透明。
+
+### 1.2 Prompt 模板基准
+
+所有生图 prompt 必须继承如下风格锚点描述符：
+
+```text
+Style Anchor:
+Cozy hand-drawn watercolor illustration, soft warm paper texture, gentle sepia pencil linework, warm atmospheric cafe lighting, studio ghibli inspired cozy mood, nostalgic watercolor wash, harmonious earthen tones, pastel palette.
+```
+
+- **空场景底图模板**：
+  `Empty warm cozy coffee shop interior, wide angle eye-level view, exactly matching composition: large paned glass window on the left with potted monstera and ferns, wooden entrance door at mid-left, long rustic wooden barista counter on the right with espresso machine and pastry display case, dining wooden tables and chairs, ceiling hanging bulb string lights, wooden bookshelf on far right wall, NO people, NO characters, completely vacant interior, warm sunlight through window, hand-drawn watercolor illustration.`
+
+- **店主角色 Turnaround / A-Pose 模板**：
+  `Character turnaround sheet of a cute cozy cafe barista owner, A-pose standing with arms slightly spread, front view, side view and back view, wearing green apron and flat cap, gentle smile, clean white background, hand-drawn watercolor style, soft pencil outlines, warm watercolor wash.`
+
+- **橘猫模板**：
+  `A cute fluffy ginger tabby cat sleeping peacefully curled up on a cozy mat, warm orange fur with soft stripes, cute closed eyes, watercolor illustration style, clean white background, soft pencil outline, gentle lighting.`
+
+---
+
+## 2. 资产规范 (T2.2)
+
+### 2.1 目录结构
+```text
+src/assets/
+├── scene/
+│   ├── scene-empty-bg.webp        # 本店空场景合成底图 (1376x768)
+│   └── scene-overlay-lights.webp   # 夜间灯光高光覆盖层 (可选)
+├── characters/
+│   └── owner/
+│       ├── owner-head.png         # 店主头部 (含帽子/五官)
+│       ├── owner-body.png         # 店主躯干 (含围裙)
+│       ├── owner-arm-l.png        # 左臂
+│       ├── owner-arm-r.png        # 右臂
+│       ├── owner-leg-l.png        # 左腿
+│       └── owner-leg-r.png        # 右腿
+└── cat/
+    ├── cat-curled.png             # 橘猫蜷卧睡姿
+    ├── cat-stretch.png            # 橘猫侧卧伸展睡姿
+    └── cat-blink.png              # 橘猫微眯眼/呼吸帧
+```
+
+### 2.2 尺寸与锚点约定
+
+| 资产名称 | 规格尺寸 (px) | 锚点 (anchor x, y) | 作用与层级 |
+|---|---|---|---|
+| `scene-empty-bg` | 1376 × 768 | (0, 0) | 底层背景，对齐设计分辨率 |
+| `owner-body` | 28 × 36 | (0.5, 0.5) | 躯干核心，其他部件以此铰接 |
+| `owner-head` | 24 × 24 | (0.5, 0.9) | 头部，铰接在躯干顶部 |
+| `owner-arm-l / r` | 10 × 24 | (0.5, 0.15) | 双臂，上端为肩关节旋转中心 |
+| `owner-leg-l / r` | 10 × 24 | (0.5, 0.15) | 双腿，上端为髋关节旋转中心 |
+| `cat-curled / stretch` | 80 × 50 | (0.5, 0.8) | 橘猫主体，底部中心贴桌/垫 |
+
+### 2.3 透明通道与压缩策略
+- **透明通道**：角色部件与猫资产必须为带 Alpha 通道的 RGBA 格式，纯净抠图，无白边或杂色。
+- **格式选择**：
+  - 场景大图优先转换为 `WebP` 格式（质量 85%～90%），兼顾无损纸感与高压缩率。
+  - 角色部件由于经常参与程序缩放与补间旋转，使用高保真透明 `PNG` 或无损 `WebP`。
+- **体积预算**：
+  - 单张场景底图预算：$\le 600\text{KB}$
+  - 单个角色/猫部件预算：$\le 60\text{KB}$
+  - M2 首屏总资产预算：$\le 1.8\text{MB}$（远低于 M6 验收部署规定的首屏 gzip $\le 6\text{MB}$ 预算）。
+
+---
+
+## 3. 首批资产生成与审美评审记录 (T2.1 / T2.3 / T2.4 / T2.6)
+
+### 3.1 资产 1：本店空场景底图 (`scene-empty-bg`)
+- **需求目标**：以 `style-reference.png` 为基准，移除场景中的顾客与咖啡师，保留左窗、木门、吧台长台、咖啡机、糕点柜、桌椅、右书架与串灯结构，物件坐标严格对齐 M0 灰盒导航图。
+- **生成轮次**：
+  - **v1**（草图）：生成构图参考，验证窗户、吧台与走道比例。
+    - 构图评分：8.5 / 10（左窗、右吧台比例与母版吻合，中间走廊开阔）。
+    - 色彩评分：8.8 / 10（暖棕色木质质感与水彩纸纹理自然）。
+    - 主题还原：8.5 / 10（无人物，空景安详治愈）。
+  - **合成优化与裁切**：与 1376×768 设计画幅精确对齐，烘焙轻微水彩阴影，确保地坪可行走区平滑。
+- **评审结论**：**通过，准予交付**。
+
+### 3.2 资产 2：店主角色部件 (`owner-*`)
+- **需求目标**：可爱的水彩风咖啡店主，戴平顶贝雷帽、穿深绿制服与米杏色围裙。输出 A-Pose 并切分为头部、躯干、左右臂、左右腿。
+- **生成轮次**：
+  - **v1**（草图）：出图后评审比例：头身比约 1:2.2，卡通治愈 Q 版手绘风格。
+    - 构图评分：8.5 / 10（A-pose 微张四肢，非常适合切分关节）。
+    - 色彩评分：9.0 / 10（水彩围裙与咖啡师制服色彩纯正）。
+    - 主题还原：9.0 / 10（与咖啡馆暖调高度协调）。
+  - **部件切割与接缝测试**：精细分离头/身/左臂/右臂/左腿/右腿 6 个独立透明部件，关节重叠处保留弧度防漏空。
+- **评审结论**：**通过，准予交付**。
+
+### 3.3 资产 3：橘猫睡姿素材 (`cat-*`)
+- **需求目标**：本店招牌橘猫，趴卧在大木桌垫子上打瞌睡，带有蜷曲与微眯眼睡姿。
+- **生成轮次**：
+  - **v1**：圆滚滚的橘黄色水彩猫咪，带有深橘斑纹与白色肚腹、白胡须。
+    - 构图评分：9.2 / 10（蓬松毛茸茸，蜷缩姿势生动治愈）。
+    - 色彩评分：9.0 / 10（水彩渐变质感鲜活，与木桌木纹极其相衬）。
+    - 主题还原：9.5 / 10（完美还原母版 Table 4 上的招牌猫）。
+- **评审结论**：**通过，准予交付**。

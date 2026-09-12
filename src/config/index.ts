@@ -509,6 +509,56 @@ export const TABLE_SEATS: readonly TableSeatDef[] = [
   }
 ] as const;
 
+export interface CatSpotDef {
+  id: string;
+  name: string;
+  pos: Point;
+  interactPoint: Point;
+}
+
+export const CAT_SPOTS: readonly CatSpotDef[] = [
+  {
+    id: 'spot_table_4',
+    name: '4号桌大木桌垫',
+    pos: { x: 440, y: 640 },
+    interactPoint: { x: 530, y: 640 }
+  },
+  {
+    id: 'spot_table_3',
+    name: '3号桌靠墙座',
+    pos: { x: 600, y: 470 },
+    interactPoint: { x: 570, y: 570 }
+  },
+  {
+    id: 'spot_table_2',
+    name: '2号桌旁暖垫',
+    pos: { x: 970, y: 610 },
+    interactPoint: { x: 940, y: 660 }
+  },
+  {
+    id: 'spot_window',
+    name: '大落地窗台绿植旁',
+    pos: { x: 380, y: 550 },
+    interactPoint: { x: 460, y: 580 }
+  }
+] as const;
+
+export const CAT_CONFIG = {
+  POSE_CHANGE_INTERVAL: 18,
+  RELOCATE_INTERVAL: 75,
+  BREATH_SPEED: 2.2,
+  CLICK_PURR_DURATION: 3.5
+} as const;
+
+export const CHAR_ANIM_CONFIG = {
+  WALK_CYCLE_SPEED: 11,
+  BODY_BOUNCE_AMPLITUDE: 2.6,
+  BODY_TILT_AMPLITUDE: 0.05,
+  LIMB_SWING_AMPLITUDE: 0.36,
+  IDLE_BREATH_SPEED: 2.2,
+  IDLE_BREATH_SCALE: 0.018
+} as const;
+
 export const CUSTOMER_CONFIG = {
   SPAWN_INTERVAL_MIN: 10,
   SPAWN_INTERVAL_MAX: 20,
