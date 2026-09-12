@@ -110,12 +110,20 @@ export class InventoryManager {
   }
 
   /**
-   * Check if emergency package condition is met:
+   * Check if emergency package condition is met (第 6 节)：
    * 1. Player's gold is insufficient to buy supplies (less than minimum trigger gold).
-   * 2. Available stock cannot fulfill ANY unlocked recipe.
+   * 2. 梦想基金不可用或额度已用尽（M3 接入，fundHasCapacity 由基金模块给出）。
+   * 3. Available stock cannot fulfill ANY unlocked recipe.
    */
-  public isEmergencyEligible(gold: number, unlockedRecipes: readonly RecipeDef[]): boolean {
+  public isEmergencyEligible(
+    gold: number,
+    unlockedRecipes: readonly RecipeDef[],
+    fundHasCapacity = false
+  ): boolean {
     if (gold >= EMERGENCY_PACKAGE_CONFIG.MIN_TRIGGER_GOLD) {
+      return false;
+    }
+    if (fundHasCapacity) {
       return false;
     }
     // Check if player can make at least one unlocked recipe
@@ -130,8 +138,12 @@ export class InventoryManager {
   /**
    * Claim emergency package if eligible.
    */
-  public claimEmergencyPackage(gold: number, unlockedRecipes: readonly RecipeDef[]): boolean {
-    if (!this.isEmergencyEligible(gold, unlockedRecipes)) {
+  public claimEmergencyPackage(
+    gold: number,
+    unlockedRecipes: readonly RecipeDef[],
+    fundHasCapacity = false
+  ): boolean {
+    if (!this.isEmergencyEligible(gold, unlockedRecipes, fundHasCapacity)) {
       return false;
     }
     for (const [id, count] of Object.entries(EMERGENCY_PACKAGE_CONFIG.ITEMS)) {

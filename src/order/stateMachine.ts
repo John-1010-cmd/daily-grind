@@ -11,6 +11,9 @@ export class OrderStateMachine {
   private saveManager: SaveManager;
   private nextOrderId = 1;
 
+  /** 设备升级带来的制作加速系数 (T3.2)，由外部按装备等级设置 */
+  public brewSpeedMultiplier = 1;
+
   constructor(
     inventory: InventoryManager,
     ledger: EconomyLedger,
@@ -76,7 +79,7 @@ export class OrderStateMachine {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       brewProgress: 0,
-      brewDurationSeconds: recipe.brewTimeSeconds,
+      brewDurationSeconds: recipe.brewTimeSeconds * this.brewSpeedMultiplier,
       reservedIngredients: {},
       activeTaskLock: null
     };
@@ -212,11 +215,13 @@ export class OrderStateMachine {
         // Settle payment through ledger
         this.ledger.settleOrder(order.recipe.name, order.recipe.price);
 
-        // Record recipe mastery (+1 sold)
+        // Record recipe mastery (+1 sold) & 不可购买经营指标 (M3: 基金额度 / 成就)
         this.saveManager.updateState((draft) => {
           if (!draft.recipeMastery) draft.recipeMastery = {};
           draft.recipeMastery[order.recipe.id] =
             (draft.recipeMastery[order.recipe.id] || 0) + 1;
+          draft.stats.completedOrders += 1;
+          draft.stats.totalRevenue += order.recipe.price;
         });
 
         order.state = 'COMPLETED';
