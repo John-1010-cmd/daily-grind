@@ -1,4 +1,4 @@
-import { DECOR_THEMES } from '../config';
+import { CAT_GIFT_CONFIG, DECOR_THEMES } from '../config';
 import { DecorManager } from '../decor';
 import { EconomyLedger } from '../economy';
 import { DreamFundManager, FundMetrics } from '../fund';
@@ -70,6 +70,7 @@ export class DecorModal {
     });
 
     const gold = this.saveManager.getState().gold;
+    const fragments = this.saveManager.getState().cat.decorationFragments;
     const outstanding = this.fundManager.getOutstanding();
     const metrics = this.getFundMetrics();
     const cap = this.fundManager.getCap(metrics);
@@ -93,13 +94,19 @@ export class DecorModal {
         const owned = this.decorManager.isVariantOwned(slot.id, variant.id);
         const selected = variant.id === selectedId;
         const cls = selected ? 'selected' : owned ? '' : 'locked';
-        const tail = owned
-          ? selected ? ' ✓' : ''
-          : ` <span class="cost">🪙${variant.cost}</span>`;
+        const tail = owned ? (selected ? ' ✓' : '') : ` <span class="cost">🪙${variant.cost}</span>`;
         chipsHtml += `
-          <button class="decor-variant-chip ${cls}" data-slot="${slot.id}" data-variant="${variant.id}" data-owned="${owned}">
-            ${variant.name}${tail}
-          </button>
+          <div class="decor-variant-option">
+            <button class="decor-variant-chip ${cls}" data-slot="${slot.id}" data-variant="${variant.id}" data-owned="${owned}">
+              ${variant.name}${tail}
+            </button>
+            ${!owned && variant.cost > 0 ? `
+              <button class="decor-fragment-btn" data-exchange-slot="${slot.id}" data-exchange-variant="${variant.id}"
+                ${fragments < CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST ? 'disabled' : ''}>
+                🧩${CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST} 兑换
+              </button>
+            ` : ''}
+          </div>
         `;
       }
       slotsHtml += `
@@ -134,8 +141,10 @@ export class DecorModal {
           ${fundBarHtml}
           <div class="supply-top-bar">
             <span>当前金币: <strong>🪙 ${gold}</strong></span>
+            <span>装饰碎片: <strong>🧩 ${fragments}</strong></span>
             <span style="font-size:12px;color:#8c6239;">点击店里的家具也可直接轮换已拥有款式</span>
           </div>
+          <div class="fund-tier-note">碎片仅来自摸猫的小礼物，可提前换到同样能用金币购买的普通款式；没有限定款或连续签到。</div>
           <div class="recipe-scroll-area" style="max-height: 300px; overflow-y: auto;">
             ${slotsHtml}
           </div>
@@ -192,6 +201,19 @@ export class DecorModal {
           }
         }
         this.onDecorChanged?.();
+        this.render();
+      });
+    });
+
+    backdrop.querySelectorAll('.decor-fragment-btn[data-exchange-slot]').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        const el = e.currentTarget as HTMLElement;
+        const result = this.decorManager.exchangeVariantWithFragments(
+          el.getAttribute('data-exchange-slot')!,
+          el.getAttribute('data-exchange-variant')!
+        );
+        this.toast.show(result.ok ? '🧩 碎片化成了新布置，已经替你摆好啦！' : (result.reason ?? '暂时无法兑换'));
+        if (result.ok) this.onDecorChanged?.();
         this.render();
       });
     });

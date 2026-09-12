@@ -13,6 +13,7 @@ import {
 import { AchievementManager } from './achievements';
 import { AudioManager } from './audio';
 import { Customer, CustomerManager } from './customer';
+import { CatInteractionManager } from './cat';
 import { DecorManager } from './decor';
 import { EconomyLedger } from './economy';
 import { EquipmentManager } from './equipment';
@@ -76,6 +77,7 @@ async function bootstrap() {
   const regularManager = new RegularManager(saveManager);
   const decorManager = new DecorManager(saveManager);
   const achievementManager = new AchievementManager(saveManager, ledger);
+  const catInteractionManager = new CatInteractionManager(saveManager, ledger);
 
   const toastManagerRef: { current: ToastManager | null } = { current: null };
   const storyModalRef: { current: StoryModal | null } = { current: null };
@@ -306,8 +308,14 @@ async function bootstrap() {
 
       onCatInteract: (cat) => {
         const res = cat.pet();
+        catInteractionManager.recordPose(res.pose);
         audioManager.playSfx('purr');
-        toastManager.show(`🐱【橘猫】${res.text}`);
+        const gift = catInteractionManager.claimDailyGift(gameClock.getWallClock());
+        const giftText = gift
+          ? gift.kind === 'gold' ? ` 它还拨来一枚小礼物：🪙+${gift.amount}` : ` 它的睡垫下藏着：🧩+${gift.amount}`
+          : '';
+        toastManager.show(`🐱【橘猫】${res.text}${giftText}`);
+        runAchievementCheck();
       },
 
       onObjectInteract: (obj) => {
@@ -521,6 +529,9 @@ async function bootstrap() {
 
     // Update scene & lighting
     greyboxScene.update(deltaSeconds);
+    if (catInteractionManager.recordPose(greyboxScene.getCatComponent().getCurrentPose())) {
+      runAchievementCheck();
+    }
     const currentPeriod = lightingSystem.update(deltaSeconds);
     hud.updatePeriod(currentPeriod);
 

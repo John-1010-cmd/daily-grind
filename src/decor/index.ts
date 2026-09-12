@@ -1,6 +1,7 @@
 import {
   DECOR_SLOTS,
   DECOR_THEMES,
+  CAT_GIFT_CONFIG,
   DecorSlotDef,
   DecorThemeDef,
   DecorVariantDef
@@ -89,6 +90,24 @@ export class DecorManager {
       draft.decor.slotVariants[slotId] = variantId;
     });
     return true;
+  }
+
+  /** 碎片只换金币也可购买的普通款式，不创建碎片独占内容。 */
+  public exchangeVariantWithFragments(slotId: string, variantId: string): { ok: boolean; reason?: string } {
+    const slot = this.getSlot(slotId);
+    const variant = slot?.variants.find((v) => v.id === variantId);
+    if (!slot || !variant || variant.cost <= 0) return { ok: false, reason: '该款式不可兑换' };
+    if (this.isVariantOwned(slotId, variantId)) return { ok: false, reason: '已拥有该款式' };
+    const fragments = this.saveManager.getState().cat.decorationFragments;
+    if (fragments < CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST) {
+      return { ok: false, reason: `装饰碎片不足（需 🧩${CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST}）` };
+    }
+    this.saveManager.updateState((draft) => {
+      draft.cat.decorationFragments -= CAT_GIFT_CONFIG.FRAGMENT_EXCHANGE_COST;
+      if (!draft.decor.ownedVariants.includes(variantId)) draft.decor.ownedVariants.push(variantId);
+      draft.decor.slotVariants[slotId] = variantId;
+    });
+    return { ok: true };
   }
 
   /** 点击家具直接切换：在已拥有款式中循环 */

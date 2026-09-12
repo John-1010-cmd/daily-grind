@@ -8,7 +8,8 @@ export type TransactionType =
   | 'decor_purchase'
   | 'staff_hire'
   | 'fund_disbursement'
-  | 'achievement_reward';
+  | 'achievement_reward'
+  | 'cat_gift';
 
 export interface TransactionDetail {
   id: string;
@@ -178,5 +179,10 @@ export class EconomyLedger {
       gold,
       `达成成就【${achievementName}】`
     );
+  }
+
+  /** 现实时间每日首摸的小额礼物，仍经唯一账本入账。 */
+  public grantCatGift(gold: number): TransactionDetail {
+    return this.createTx('cat_gift', gold, gold, '橘猫从睡垫下拨出一枚小礼物');
   }
 }

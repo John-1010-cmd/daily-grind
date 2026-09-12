@@ -5,6 +5,9 @@ import { RegularManager } from '../regulars';
 import { SaveManager } from '../save';
 import { drinkIconHtml } from './drinkIcons';
 import { regularPortraitHtml } from './regularPortraits';
+import catBlinkUrl from '../assets/cat/cat-blink.png';
+import catCurledUrl from '../assets/cat/cat-curled.png';
+import catStretchUrl from '../assets/cat/cat-stretch.png';
 
 type HandbookTab = 'regulars' | 'drinks' | 'furniture' | 'cat' | 'achievements';
 
@@ -17,9 +20,9 @@ const TAB_DEFS: { id: HandbookTab; label: string }[] = [
 ];
 
 const CAT_POSE_ENTRIES = [
-  { id: 'curled', name: '蜷卧团子睡', icon: '🐱', description: '把自己团成一颗橘色毛线球。' },
-  { id: 'stretch', name: '侧卧伸展睡', icon: '😺', description: '四脚朝天伸懒腰式睡法。' },
-  { id: 'blink', name: '眯眼打盹', icon: '😽', description: '被摸舒服了，眯起眼睛呼噜呼噜。' }
+  { id: 'curled', name: '蜷卧团子睡', image: catCurledUrl, description: '把自己团成一颗橘色毛线球。' },
+  { id: 'stretch', name: '侧卧伸展睡', image: catStretchUrl, description: '四脚朝天伸懒腰式睡法。' },
+  { id: 'blink', name: '眯眼打盹', image: catBlinkUrl, description: '被摸舒服了，眯起眼睛呼噜呼噜。' }
 ];
 
 /**
@@ -191,7 +194,7 @@ export class HandbookModal {
       const found = seen.has(p.id);
       return `
         <div class="handbook-card ${found ? '' : 'locked'}">
-          <div class="hb-icon">${found ? p.icon : '❔'}</div>
+          <div class="hb-icon">${found ? `<img src="${p.image}" alt="${p.name}">` : '❔'}</div>
           <div class="hb-name">${found ? p.name : '？？？'}</div>
           <div class="hb-sub">${found ? p.description : '还没见过这种睡姿'}</div>
         </div>

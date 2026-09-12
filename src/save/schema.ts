@@ -63,6 +63,10 @@ export interface SaveStateV2 {
     totalRevenue: number;
   };
   catPosesSeen: string[];
+  cat: {
+    lastGiftDate: string | null;
+    decorationFragments: number;
+  };
 }
 
 export type SaveStateV1Legacy = Omit<SaveStateV2, 'version' | 'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'> & { version: 1 };
@@ -112,7 +116,11 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
     completedOrders: 0,
     totalRevenue: 0
   },
-  catPosesSeen: []
+  catPosesSeen: [],
+  cat: {
+    lastGiftDate: null,
+    decorationFragments: 0
+  }
 };
 
 /** 深拷贝默认存档：浅拷贝会让多个 SaveManager 实例共享嵌套对象（fund/staff/decor 等）造成串档 */
@@ -122,7 +130,7 @@ export function cloneDefaultSaveState(): SaveStateV2 {
 
 function defaultM3Fields(): Pick<
   SaveStateV2,
-  'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'
+  'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen' | 'cat'
 > {
   return {
     decor: { ...DEFAULT_SAVE_STATE.decor, slotVariants: {}, ownedVariants: [], ownedThemes: ['theme_wood'] },
@@ -132,7 +140,8 @@ function defaultM3Fields(): Pick<
     fund: { loans: [], totalBorrowed: 0 },
     achievements: [],
     stats: { completedOrders: 0, totalRevenue: 0 },
-    catPosesSeen: []
+    catPosesSeen: [],
+    cat: { lastGiftDate: null, decorationFragments: 0 }
   };
 }
 
@@ -426,6 +435,16 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
 
   if (Array.isArray(obj.catPosesSeen)) {
     m3.catPosesSeen = obj.catPosesSeen.filter((v): v is string => typeof v === 'string');
+  }
+
+  if (obj.cat && typeof obj.cat === 'object' && !Array.isArray(obj.cat)) {
+    const cat = obj.cat as Record<string, unknown>;
+    if (typeof cat.lastGiftDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cat.lastGiftDate)) {
+      m3.cat.lastGiftDate = cat.lastGiftDate;
+    }
+    if (typeof cat.decorationFragments === 'number' && cat.decorationFragments >= 0) {
+      m3.cat.decorationFragments = Math.floor(cat.decorationFragments);
+    }
   }
 
   const sanitizedData: SaveStateV2 = {
