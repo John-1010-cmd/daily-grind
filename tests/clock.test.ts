@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameClock } from '../src/clock';
-import { CLOCK_CONFIG, TIME_PERIODS } from '../src/config';
+import { CLOCK_CONFIG } from '../src/config';
 
 describe('Three-Clock System & Lighting Cycle (T0.6 & T0.7)', () => {
   it('1. activePlayTime 正常推进与暂停挂起', () => {

@@ -2,15 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   NAV_EDGES,
   NAV_WAYPOINTS,
-  SCENE_OBJECTS,
-  WALKABLE_ZONES
+  SCENE_OBJECTS
 } from '../src/config';
 import {
   NavGraph,
   clampToWalkable,
-  distance,
   findHitObject,
-  isLineWalkable,
   isPointInWalkable
 } from '../src/scene/nav';
 

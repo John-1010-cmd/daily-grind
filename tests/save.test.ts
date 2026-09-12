@@ -108,7 +108,7 @@ describe('Save System & Schema (T0.8 & T0.10)', () => {
     // Simulate quota exceeded
     const throwItemStorage: SafeLocalStorageAdapter = Object.create(safeAdapter);
     let memoryFallbackValue: string | null = null;
-    throwItemStorage.setItem = (k, v) => {
+    throwItemStorage.setItem = (_k, v) => {
       // simulate throwing QuotaExceededError and switching to memory fallback
       try {
         throw new Error('QuotaExceededError');
