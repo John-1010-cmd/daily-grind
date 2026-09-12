@@ -112,6 +112,31 @@ export const CLOCK_CONFIG = {
   ]
 } as const;
 
+/** M4 成品光照：所有灯位和过渡数值集中在 config，场景逻辑只消费配置。 */
+export const LIGHTING_CONFIG = {
+  TRANSITION_PORTION: 0.18,
+  NIGHT_MIN_GLOW_STRENGTH: 0.72,
+  NIGHT_PULSE_SPEED: 1.4,
+  NIGHT_PULSE_AMPLITUDE: 0.08,
+  STRING_COLOR: 0x5d3b22,
+  BULB_COLOR: 0xffd37a,
+  BULB_CORE_RADIUS: 4,
+  BULB_HALO_RADIUS: 34,
+  BULB_CORE_ALPHA: 0.9,
+  BULB_HALO_ALPHA: 0.16,
+  STRING_WIDTH: 2,
+  STRING_LIGHTS: [
+    { x: 540, y: 38 }, { x: 590, y: 57 }, { x: 644, y: 74 },
+    { x: 712, y: 80 }, { x: 781, y: 67 }, { x: 837, y: 44 },
+    { x: 1028, y: 42 }, { x: 1100, y: 59 }, { x: 1162, y: 50 },
+    { x: 1224, y: 76 }, { x: 1262, y: 45 }
+  ],
+  STRING_SEGMENTS: [
+    [{ x: 515, y: 18 }, { x: 590, y: 57 }, { x: 712, y: 80 }, { x: 837, y: 44 }, { x: 880, y: 10 }],
+    [{ x: 1002, y: 12 }, { x: 1100, y: 59 }, { x: 1224, y: 76 }, { x: 1300, y: 10 }]
+  ]
+} as const;
+
 export const SCENE_OBJECTS: readonly SceneObjectConfig[] = [
   {
     id: 'window',
