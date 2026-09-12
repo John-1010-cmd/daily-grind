@@ -19,7 +19,7 @@ import { EconomyLedger } from './economy';
 import { EquipmentManager } from './equipment';
 import { DreamFundManager, FundMetrics } from './fund';
 import { InventoryManager } from './inventory';
-import { OrderStateMachine } from './order';
+import { NOOP_LATTE_ART_HOOK, OrderStateMachine, toLatteArtEvent } from './order';
 import { RegularManager } from './regulars';
 import { SaveManager } from './save';
 import { GreyboxScene } from './scene/greybox';
@@ -70,6 +70,11 @@ async function bootstrap() {
   const navGraph = new NavGraph(NAV_WAYPOINTS, NAV_EDGES);
   const orderStateMachine = new OrderStateMachine(inventory, ledger, saveManager);
   const customerManager = new CustomerManager(navGraph, inventory, orderStateMachine);
+  orderStateMachine.setBrewStartedHook((order) => {
+    if (order.recipe.id.startsWith(REGULAR_CONFIG.EXCLUSIVE_RECIPE_PREFIX)) {
+      NOOP_LATTE_ART_HOOK.onExclusiveDrinkBrewStarted(toLatteArtEvent(order));
+    }
+  });
 
   // 4.5 M3 长线系统：基金 / 设备 / 常客 / 店员 / 装修 / 成就
   const fundManager = new DreamFundManager(saveManager);

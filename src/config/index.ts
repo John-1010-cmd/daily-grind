@@ -918,7 +918,8 @@ export const REGULAR_DEFS: readonly RegularDef[] = [
 
 export const REGULAR_CONFIG = {
   SPAWN_CHANCE: 0.45,
-  EXCLUSIVE_ORDER_CHANCE: 0.5
+  EXCLUSIVE_ORDER_CHANCE: 0.5,
+  EXCLUSIVE_RECIPE_PREFIX: 'ex_'
 } as const;
 
 // ==================== M3 经营厚度：装修 (T3.1) ====================

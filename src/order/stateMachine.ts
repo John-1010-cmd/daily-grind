@@ -10,6 +10,7 @@ export class OrderStateMachine {
   private ledger: EconomyLedger;
   private saveManager: SaveManager;
   private nextOrderId = 1;
+  private onBrewStarted: ((order: Readonly<Order>) => void) | null = null;
 
   /** 设备升级带来的制作加速系数 (T3.2)，由外部按装备等级设置 */
   public brewSpeedMultiplier = 1;
@@ -22,6 +23,10 @@ export class OrderStateMachine {
     this.inventory = inventory;
     this.ledger = ledger;
     this.saveManager = saveManager;
+  }
+
+  public setBrewStartedHook(hook: ((order: Readonly<Order>) => void) | null): void {
+    this.onBrewStarted = hook;
   }
 
   public getOrder(orderId: string): Order | undefined {
@@ -161,6 +166,7 @@ export class OrderStateMachine {
       order.activeTaskLock.started = true;
       if (taskType === 'BREW') {
         order.state = 'BREWING';
+        this.onBrewStarted?.(order);
       }
       order.updatedAt = Date.now();
       return true;
