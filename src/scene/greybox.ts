@@ -160,7 +160,7 @@ export class GreyboxScene {
   }
 
   private buildSceneBackground(): void {
-    const bgSprite = Sprite.from(Texture.from(sceneBaseUrl));
+    const bgSprite = new Sprite(Texture.from(sceneBaseUrl));
     bgSprite.width = SCREEN_CONFIG.DESIGN_WIDTH;
     bgSprite.height = SCREEN_CONFIG.DESIGN_HEIGHT;
     this.backgroundLayer.addChild(bgSprite);

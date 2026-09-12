@@ -1,4 +1,5 @@
-import { Application, Graphics } from 'pixi.js';
+import { Application, Assets, Graphics } from 'pixi.js';
+import { CORE_PIXI_ASSETS } from './assets/preload';
 import { GameClock } from './clock';
 import {
   DECOR_SLOTS,
@@ -230,6 +231,7 @@ async function bootstrap() {
   });
 
   sceneContainer.appendChild(app.canvas);
+  await Assets.load([...CORE_PIXI_ASSETS]);
 
   // 7. Toast & World Overlay Systems
   const toastManager = new ToastManager(uiRoot);
