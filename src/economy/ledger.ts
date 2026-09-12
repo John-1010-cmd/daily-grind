@@ -9,7 +9,8 @@ export type TransactionType =
   | 'staff_hire'
   | 'fund_disbursement'
   | 'achievement_reward'
-  | 'cat_gift';
+  | 'cat_gift'
+  | 'branch_unlock';
 
 export interface TransactionDetail {
   id: string;
@@ -184,5 +185,9 @@ export class EconomyLedger {
   /** 现实时间每日首摸的小额礼物，仍经唯一账本入账。 */
   public grantCatGift(gold: number): TransactionDetail {
     return this.createTx('cat_gift', gold, gold, '橘猫从睡垫下拨出一枚小礼物');
+  }
+
+  public settleBranchUnlock(branchName: string, cost: number): TransactionDetail {
+    return this.createTx('branch_unlock', cost, -cost, `为【${branchName}】备齐开店所需`);
   }
 }

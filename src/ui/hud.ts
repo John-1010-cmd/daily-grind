@@ -9,6 +9,7 @@ import { hudIconHtml } from './hudIcons';
 import { RecipesModal } from './recipesModal';
 import { SettingsModal } from './settings';
 import { StaffModal } from './staffModal';
+import { MapModal } from './mapModal';
 import { SupplyModal } from './supplyModal';
 import { ToastManager } from './toast';
 
@@ -22,6 +23,7 @@ export interface HudM3Modals {
   fundModal: FundModal;
   staffModal: StaffModal;
   handbookModal: HandbookModal;
+  mapModal: MapModal;
 }
 
 export class Hud {
@@ -133,7 +135,8 @@ export class Hud {
     hudRight.className = 'hud-right';
 
     for (const btnDef of UI_CONFIG.TOP_NAV_BUTTONS) {
-      const isEnabled = Boolean((btnDef as { enabledInM3?: boolean }).enabledInM3 ?? btnDef.enabledInM1);
+      const flags = btnDef as { enabledInM3?: boolean; enabledInM5?: boolean };
+      const isEnabled = Boolean(flags.enabledInM5 ?? flags.enabledInM3 ?? btnDef.enabledInM1);
       const btn = document.createElement('button');
       btn.className = `hud-btn ${isEnabled ? '' : 'disabled'}`;
       btn.title = btnDef.label;
@@ -156,8 +159,8 @@ export class Hud {
           this.m3Modals?.staffModal.open();
         } else if (btnDef.id === 'handbook') {
           this.m3Modals?.handbookModal.open();
-        } else {
-          this.toast.show(`【${btnDef.label}】功能将在后续里程碑逐步解锁`);
+        } else if (btnDef.id === 'map') {
+          this.m3Modals?.mapModal.open();
         }
       });
 

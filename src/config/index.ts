@@ -722,6 +722,12 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
   }
 };
 
+export const BRANCH_CONFIG = {
+  SEASIDE_UNLOCK_COST: 1200,
+  SEASIDE_PREREQUISITE_ACHIEVEMENT_IDS: ['ach_lines_3', 'ach_regulars_5'],
+  SHOP_PRIORITY: ['main', 'seaside'] as readonly ShopId[]
+} as const;
+
 export const SESSION_RELEASE_CONDITIONS = {
   TARGET_ORDERS_IN_15_MIN: 8,
   LINE2_FIRST_RECIPE_ID: 'jasmine_tea',
@@ -757,7 +763,7 @@ export const UI_CONFIG = {
     { id: 'decor', label: '装修', icon: '🛋️', enabledInM0: false, enabledInM1: false, enabledInM3: true },
     { id: 'handbook', label: '图鉴', icon: '📕', enabledInM0: false, enabledInM1: false, enabledInM3: true },
     { id: 'staff', label: '店员', icon: '🧑‍🍳', enabledInM0: false, enabledInM1: false, enabledInM3: true },
-    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false, enabledInM1: false, enabledInM3: false },
+    { id: 'map', label: '分店地图', icon: '🗺️', enabledInM0: false, enabledInM1: false, enabledInM3: false, enabledInM5: true },
     { id: 'fund', label: '梦想基金', icon: '🏺', enabledInM0: false, enabledInM1: false, enabledInM3: true },
     { id: 'settings', label: '设置', icon: '⚙️', enabledInM0: true, enabledInM1: true, enabledInM3: true }
   ]

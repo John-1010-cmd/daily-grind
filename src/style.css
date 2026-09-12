@@ -1106,3 +1106,66 @@ html, body {
 .regular-star {
   color: #e8a13c;
 }
+
+/* M5 分店地图 */
+.map-branch-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.05fr) minmax(280px, 0.95fr);
+  gap: 18px;
+  padding: 14px;
+  border: 2px dashed #c9a06a;
+  border-radius: 16px;
+  background: rgba(255, 252, 244, 0.82);
+}
+
+.map-branch-card img {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 5px 18px rgba(73, 92, 83, 0.18);
+}
+
+.map-branch-copy h3 {
+  color: #436e78;
+  font-size: 22px;
+  margin: 2px 0 8px;
+}
+
+.map-branch-copy p,
+.map-condition small {
+  color: #6c6254;
+  line-height: 1.55;
+}
+
+.map-branch-copy ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+
+.map-condition {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(232, 216, 190, 0.4);
+  margin-bottom: 5px;
+}
+
+.map-condition.met {
+  color: #4e7d66;
+  background: rgba(196, 225, 204, 0.45);
+}
+
+.map-gold-progress {
+  font-weight: 700;
+  color: #8c6239;
+  margin: 8px 0 12px;
+}
+
+.map-panel .btn-action:disabled {
+  cursor: default;
+  opacity: 0.48;
+  transform: none;
+}

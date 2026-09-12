@@ -23,13 +23,14 @@ import { SaveManager } from './save';
 import { GreyboxScene } from './scene/greybox';
 import { CustomerCharacter } from './scene/customerCharacter';
 import { LightingSystem } from './scene/lighting';
-import { createShopRuntime, ShopRuntime } from './shop';
+import { BranchManager, createShopRuntime, ShopRuntime } from './shop';
 import { StaffMember } from './staff';
 import {
   DecorModal,
   FundModal,
   HandbookModal,
   Hud,
+  MapModal,
   StaffModal,
   StoryModal,
   ToastManager,
@@ -95,6 +96,7 @@ async function bootstrap() {
   const regularManager = new RegularManager(saveManager);
   let decorManager = activeRuntime.decorManager;
   const achievementManager = new AchievementManager(saveManager, ledger);
+  const branchManager = new BranchManager(saveManager, ledger, achievementManager);
   const catInteractionManager = new CatInteractionManager(saveManager, ledger);
 
   const toastManagerRef: { current: ToastManager | null } = { current: null };
@@ -459,7 +461,8 @@ async function bootstrap() {
     decorModal,
     fundModal: new FundModal(uiRoot, saveManager, ledger, fundManager, buildFundMetrics, toastManager),
     staffModal: new StaffModal(uiRoot, saveManager, staffMember, toastManager),
-    handbookModal: new HandbookModal(uiRoot, saveManager, regularManager, decorManager, achievementManager)
+    handbookModal: new HandbookModal(uiRoot, saveManager, regularManager, decorManager, achievementManager),
+    mapModal: new MapModal(uiRoot, branchManager, toastManager)
   });
   hud.getRecipesModal().setEquipmentManager(equipmentManager);
   hud.getSupplyModal().setFundCapacityProvider(() => fundManager.hasAvailableCapacity(buildFundMetrics()));

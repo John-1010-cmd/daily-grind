@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { RECIPE_DEFS, SHOP_SCENES } from '../src/config';
+import { BRANCH_CONFIG, RECIPE_DEFS, SHOP_SCENES } from '../src/config';
+import { AchievementManager } from '../src/achievements';
 import { EconomyLedger } from '../src/economy';
 import { InventoryManager } from '../src/inventory';
 import { MemoryStorageAdapter, SaveManager } from '../src/save';
-import { createShopRuntime } from '../src/shop';
+import { BranchManager, createShopRuntime } from '../src/shop';
 
 describe('M5 分店现场经营与共享库存（T5.2）', () => {
   it('海风分店复用完整订单状态机，现场完成接单到收银', () => {
@@ -66,5 +67,29 @@ describe('M5 分店现场经营与共享库存（T5.2）', () => {
     expect(main.decorManager.isVariantOwned(main.decorManager.getSlots()[0].id, paidVariant.id)).toBe(false);
     expect(save.getState().world.shops.seaside.decor.ownedVariants).toContain(paidVariant.id);
     expect(save.getState().decor.ownedVariants).not.toContain(paidVariant.id);
+  });
+
+  it('海风分店只检查明示的金币目标与前置成就，达成后一次解锁', () => {
+    const save = new SaveManager(new MemoryStorageAdapter());
+    const ledger = new EconomyLedger(save);
+    const achievements = new AchievementManager(save, ledger);
+    const branches = new BranchManager(save, ledger, achievements);
+
+    save.setGold(BRANCH_CONFIG.SEASIDE_UNLOCK_COST);
+    expect(branches.unlockSeaside()).toMatchObject({ ok: false });
+    save.updateState((draft) => {
+      draft.achievements.push(...BRANCH_CONFIG.SEASIDE_PREREQUISITE_ACHIEVEMENT_IDS);
+    });
+
+    expect(branches.getSeasideStatus()).toMatchObject({
+      hasEnoughGold: true,
+      prerequisitesMet: true,
+      unlocked: false
+    });
+    expect(branches.unlockSeaside()).toEqual({ ok: true });
+    expect(save.getState().world.shops.seaside.unlocked).toBe(true);
+    expect(save.getState().gold).toBe(0);
+    expect(ledger.getHistory().at(-1)?.type).toBe('branch_unlock');
+    expect(branches.unlockSeaside().ok).toBe(false);
   });
 });

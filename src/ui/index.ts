@@ -9,3 +9,4 @@ export * from './decorModal';
 export * from './fundModal';
 export * from './staffModal';
 export * from './handbookModal';
+export * from './mapModal';
