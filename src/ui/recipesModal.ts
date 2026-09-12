@@ -1,5 +1,6 @@
 import { RECIPE_DEFS } from '../config';
 import { EconomyLedger } from '../economy';
+import { EquipmentManager } from '../equipment';
 import { SaveManager } from '../save';
 import { ToastManager } from './toast';
 
@@ -8,6 +9,7 @@ export class RecipesModal {
   private saveManager: SaveManager;
   private ledger: EconomyLedger;
   private toast: ToastManager;
+  private equipmentManager: EquipmentManager | null = null;
   private isOpen = false;
   private modalEl: HTMLElement | null = null;
 
@@ -21,6 +23,10 @@ export class RecipesModal {
     this.saveManager = saveManager;
     this.ledger = ledger;
     this.toast = toast;
+  }
+
+  public setEquipmentManager(equipmentManager: EquipmentManager): void {
+    this.equipmentManager = equipmentManager;
   }
 
   public open(): void {
@@ -135,6 +141,7 @@ export class RecipesModal {
             <span>当前金币: <strong>🪙 ${currentGold}</strong></span>
             <span>已解锁: <strong>${unlockedSet.size} / ${RECIPE_DEFS.length} 款</strong></span>
           </div>
+          ${this.renderEquipmentSection(currentGold)}
           <div class="recipe-scroll-area">
             ${linesHtml}
           </div>
@@ -146,6 +153,17 @@ export class RecipesModal {
 
     backdrop.querySelector('#btn-close-recipes')?.addEventListener('click', () => this.close());
 
+    backdrop.querySelector('#btn-upgrade-equipment')?.addEventListener('click', () => {
+      if (!this.equipmentManager) return;
+      const next = this.equipmentManager.getNextDef();
+      if (this.equipmentManager.upgrade(this.ledger)) {
+        this.toast.show(`🎉 设备升级为【${next?.label}】！制作更快${next && next.brewSlots > 1 ? '，可同时做两杯' : ''}~`);
+        this.render();
+      } else {
+        this.toast.show('金币还不够升级设备，多做几单吧~');
+      }
+    });
+
     backdrop.querySelectorAll('.btn-unlock').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
@@ -154,6 +172,31 @@ export class RecipesModal {
         this.unlockRecipe(recipeId);
       });
     });
+  }
+
+  private renderEquipmentSection(currentGold: number): string {
+    if (!this.equipmentManager) return '';
+    const current = this.equipmentManager.getCurrentDef();
+    const next = this.equipmentManager.getNextDef();
+    if (!next) {
+      return `
+        <div class="fund-tier-note">
+          ⚙️ 当前设备：<strong>${current.label}</strong>（已是最高级，出品快 ${Math.round((1 - current.brewSpeedMultiplier) * 100)}%，双杯并行）
+        </div>
+      `;
+    }
+    const canAfford = currentGold >= next.upgradeCost;
+    return `
+      <div class="fund-tier-note" style="display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;">
+          ⚙️ 当前设备：<strong>${current.label}</strong> — ${current.description}<br>
+          下一级：<strong>${next.label}</strong> — ${next.description}
+        </div>
+        <button class="btn-action btn-buy" id="btn-upgrade-equipment" ${canAfford ? '' : 'disabled'}>
+          升级设备（🪙${next.upgradeCost}）
+        </button>
+      </div>
+    `;
   }
 
   private unlockRecipe(recipeId: string): void {

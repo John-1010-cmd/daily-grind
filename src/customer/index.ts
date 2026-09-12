@@ -36,6 +36,8 @@ export interface Customer {
   chosenRecipe: RecipeDef | null;
   color: number;
   allOutOfStockCount: number;
+  /** 常客 ID（随机路人为 undefined），M3 常客系统 */
+  regularId?: string;
 }
 
 const CUSTOMER_NAMES = [
@@ -57,6 +59,19 @@ const CUSTOMER_PALETTES = [
   0xe84393  // pink
 ];
 
+/** M3 常客接入钩子（避免 customer 模块反向依赖 regulars 模块） */
+export interface RegularHooks {
+  /** 决定本次进店是否为常客：返回常客定义或 null（随机路人） */
+  pickRegular: (activeRegularIds: Set<string>) => { id: string; name: string; color: number } | null;
+  /** 常客进店时回调（计 visit） */
+  onRegularArrive: (regularId: string) => void;
+  /** 常客固定偏好 / 专属点单：返回完整 RecipeDef（专属）或配方 id（常规偏好走缺货改点流程） */
+  pickRecipeFor: (
+    regularId: string,
+    unlockedRecipeIds: readonly string[]
+  ) => { kind: 'exclusive'; recipe: RecipeDef } | { kind: 'preferred'; recipeId: string } | null;
+}
+
 export class CustomerManager {
   private customers: Customer[] = [];
   private spawnTimer: number = 2; // Initial spawn soon after launch
@@ -64,6 +79,9 @@ export class CustomerManager {
   private inventory: InventoryManager;
   private orderStateMachine: OrderStateMachine;
   private nextCustomerId = 1;
+
+  /** M3：常客生成与点单偏好（由 main 注入） */
+  private regularHooks: RegularHooks | null = null;
 
   constructor(
     navGraph: NavGraph,
@@ -73,6 +91,10 @@ export class CustomerManager {
     this.navGraph = navGraph;
     this.inventory = inventory;
     this.orderStateMachine = orderStateMachine;
+  }
+
+  public setRegularHooks(hooks: RegularHooks): void {
+    this.regularHooks = hooks;
   }
 
   public getCustomers(): readonly Customer[] {
@@ -114,8 +136,25 @@ export class CustomerManager {
     }
 
     const chosenSeat = availableSeats[Math.floor(Math.random() * availableSeats.length)];
-    const name = CUSTOMER_NAMES[Math.floor(Math.random() * CUSTOMER_NAMES.length)];
-    const color = CUSTOMER_PALETTES[Math.floor(Math.random() * CUSTOMER_PALETTES.length)];
+
+    // M3：常客优先生成（不与店内现有常客重复）
+    let regularId: string | undefined;
+    let name: string;
+    let color: number;
+    const activeRegularIds = new Set(
+      this.customers
+        .filter((c) => c.state !== 'LEFT' && c.regularId)
+        .map((c) => c.regularId as string)
+    );
+    const regular = this.regularHooks?.pickRegular(activeRegularIds) ?? null;
+    if (regular) {
+      regularId = regular.id;
+      name = regular.name;
+      color = regular.color;
+    } else {
+      name = CUSTOMER_NAMES[Math.floor(Math.random() * CUSTOMER_NAMES.length)];
+      color = CUSTOMER_PALETTES[Math.floor(Math.random() * CUSTOMER_PALETTES.length)];
+    }
 
     const spawnPos = { ...CUSTOMER_CONFIG.SPAWN_POS };
     const walkPath = this.navGraph.route(spawnPos, chosenSeat.seatPos);
@@ -135,10 +174,14 @@ export class CustomerManager {
       orderId: null,
       chosenRecipe: null,
       color,
-      allOutOfStockCount: 0
+      allOutOfStockCount: 0,
+      regularId
     };
 
     this.customers.push(customer);
+    if (regularId) {
+      this.regularHooks?.onRegularArrive(regularId);
+    }
     return customer;
   }
 
@@ -155,6 +198,21 @@ export class CustomerManager {
     unlockedRecipeIds: readonly string[],
     forcedPreferredId?: string
   ): void {
+    // M3 常客：固定偏好 / 好感专属点单
+    if (customer.regularId && this.regularHooks) {
+      const pick = this.regularHooks.pickRecipeFor(customer.regularId, unlockedRecipeIds);
+      if (pick?.kind === 'exclusive') {
+        // 专属点单：有货则直接确认；缺货则回落到常规偏好流程
+        if (this.inventory.canFulfill(pick.recipe.ingredients)) {
+          this.setBubble(customer, `今天想喝那杯【${pick.recipe.name}】，老规矩~`, 3.0);
+          this.confirmOrder(customer, pick.recipe);
+          return;
+        }
+      } else if (pick?.kind === 'preferred') {
+        forcedPreferredId = pick.recipeId;
+      }
+    }
+
     const unlockedDefs = RECIPE_DEFS.filter((r) => unlockedRecipeIds.includes(r.id));
     if (unlockedDefs.length === 0) {
       this.setBubble(customer, '店里还没有配方呢，我稍后再来看看~', 3.0);

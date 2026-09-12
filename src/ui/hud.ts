@@ -2,14 +2,25 @@ import { TimePeriodConfig, UI_CONFIG } from '../config';
 import { EconomyLedger } from '../economy';
 import { InventoryManager } from '../inventory';
 import { SaveManager } from '../save';
+import { DecorModal } from './decorModal';
+import { FundModal } from './fundModal';
+import { HandbookModal } from './handbookModal';
 import { RecipesModal } from './recipesModal';
 import { SettingsModal } from './settings';
+import { StaffModal } from './staffModal';
 import { SupplyModal } from './supplyModal';
 import { ToastManager } from './toast';
 
 export interface HudCallbacks {
   onToggleDebug: (enabled: boolean) => void;
   onResetGame?: () => void;
+}
+
+export interface HudM3Modals {
+  decorModal: DecorModal;
+  fundModal: FundModal;
+  staffModal: StaffModal;
+  handbookModal: HandbookModal;
 }
 
 export class Hud {
@@ -26,6 +37,7 @@ export class Hud {
   private settingsModal: SettingsModal;
   private recipesModal: RecipesModal;
   private supplyModal: SupplyModal;
+  private m3Modals: HudM3Modals | null = null;
   private debugBtnEl!: HTMLElement;
 
   private isDebugActive: boolean = false;
@@ -74,6 +86,18 @@ export class Hud {
     this.bindSaveState();
   }
 
+  public setM3Modals(modals: HudM3Modals): void {
+    this.m3Modals = modals;
+  }
+
+  public getRecipesModal(): RecipesModal {
+    return this.recipesModal;
+  }
+
+  public getSupplyModal(): SupplyModal {
+    return this.supplyModal;
+  }
+
   private render(): void {
     const hudLayer = document.createElement('div');
     hudLayer.className = 'hud-layer';
@@ -104,7 +128,7 @@ export class Hud {
     hudRight.className = 'hud-right';
 
     for (const btnDef of UI_CONFIG.TOP_NAV_BUTTONS) {
-      const isEnabled = Boolean(btnDef.enabledInM1);
+      const isEnabled = Boolean((btnDef as { enabledInM3?: boolean }).enabledInM3 ?? btnDef.enabledInM1);
       const btn = document.createElement('button');
       btn.className = `hud-btn ${isEnabled ? '' : 'disabled'}`;
       btn.title = btnDef.label;
@@ -119,6 +143,14 @@ export class Hud {
           this.recipesModal.open();
         } else if (btnDef.id === 'supply') {
           this.supplyModal.open();
+        } else if (btnDef.id === 'decor') {
+          this.m3Modals?.decorModal.open();
+        } else if (btnDef.id === 'fund') {
+          this.m3Modals?.fundModal.open();
+        } else if (btnDef.id === 'staff') {
+          this.m3Modals?.staffModal.open();
+        } else if (btnDef.id === 'handbook') {
+          this.m3Modals?.handbookModal.open();
         } else {
           this.toast.show(`【${btnDef.label}】功能将在后续里程碑逐步解锁`);
         }

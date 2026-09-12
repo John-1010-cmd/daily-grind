@@ -15,6 +15,7 @@ export class SupplyModal {
   private ledger: EconomyLedger;
   private saveManager: SaveManager;
   private toast: ToastManager;
+  private fundCapacityProvider: (() => boolean) | null = null;
   private isOpen = false;
   private modalEl: HTMLElement | null = null;
   private selectedBatchIndex = 0; // default 10 units
@@ -31,6 +32,11 @@ export class SupplyModal {
     this.ledger = ledger;
     this.saveManager = saveManager;
     this.toast = toast;
+  }
+
+  /** M3：梦想基金是否还有可申请额度（应急包裹触发条件之一，第 6 节） */
+  public setFundCapacityProvider(provider: () => boolean): void {
+    this.fundCapacityProvider = provider;
   }
 
   public open(): void {
@@ -63,7 +69,8 @@ export class SupplyModal {
     const state = this.saveManager.getState();
     const currentGold = state.gold;
     const unlockedDefs = RECIPE_DEFS.filter((r) => state.unlockedRecipes.includes(r.id));
-    const isEmergencyEligible = this.inventory.isEmergencyEligible(currentGold, unlockedDefs);
+    const fundHasCapacity = this.fundCapacityProvider ? this.fundCapacityProvider() : false;
+    const isEmergencyEligible = this.inventory.isEmergencyEligible(currentGold, unlockedDefs, fundHasCapacity);
 
     const batch = SUPPLY_BATCH_DISCOUNTS[this.selectedBatchIndex];
 
@@ -131,8 +138,8 @@ export class SupplyModal {
               <div class="emergency-desc">
                 ${
                   isEmergencyEligible
-                    ? `检测到金币不足以采购且原料已耗尽！前辈送来一份基础原料包（${emergencyList}），助你重新开工！`
-                    : `经营顺利中。当金币低于 🪙${EMERGENCY_PACKAGE_CONFIG.MIN_TRIGGER_GOLD} 且无原料可出杯时自动激活免费领取。`
+                    ? `检测到金币不足、梦想基金额度也已用尽且原料已耗尽！前辈送来一份基础原料包（${emergencyList}），助你重新开工！`
+                    : `经营顺利中。当金币低于 🪙${EMERGENCY_PACKAGE_CONFIG.MIN_TRIGGER_GOLD}、基金额度用尽且无原料可出杯时自动激活免费领取。`
                 }
               </div>
             </div>
@@ -175,7 +182,7 @@ export class SupplyModal {
     });
 
     backdrop.querySelector('#btn-claim-emergency')?.addEventListener('click', () => {
-      const success = this.inventory.claimEmergencyPackage(currentGold, unlockedDefs);
+      const success = this.inventory.claimEmergencyPackage(currentGold, unlockedDefs, fundHasCapacity);
       if (success) {
         // Sync inventory to save
         this.saveManager.updateState((draft) => {

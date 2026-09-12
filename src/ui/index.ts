@@ -4,3 +4,8 @@ export * from './recipesModal';
 export * from './supplyModal';
 export * from './worldOverlay';
 export * from './hud';
+export * from './storyModal';
+export * from './decorModal';
+export * from './fundModal';
+export * from './staffModal';
+export * from './handbookModal';
