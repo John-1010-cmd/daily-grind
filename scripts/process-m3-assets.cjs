@@ -139,11 +139,35 @@ async function processDecor() {
   }
 }
 
+async function processUi() {
+  console.log('=== E. HUD icons sheet + paper texture -> src/assets/ui ===');
+  // hud-icons-sheet 1536x1024，2 行 4 列，对应 TOP_NAV_BUTTONS 顺序（map 为 M5 预留）
+  const icons = [
+    { name: 'icon_recipes.png', region: { left: 23, top: 108, width: 392, height: 338 } },
+    { name: 'icon_supply.png', region: { left: 438, top: 92, width: 284, height: 353 } },
+    { name: 'icon_decor.png', region: { left: 799, top: 92, width: 338, height: 353 } },
+    { name: 'icon_handbook.png', region: { left: 1213, top: 84, width: 284, height: 376 } },
+    { name: 'icon_staff.png', region: { left: 31, top: 507, width: 283, height: 445 } },
+    { name: 'icon_map.png', region: { left: 384, top: 568, width: 415, height: 338 } },
+    { name: 'icon_fund.png', region: { left: 837, top: 530, width: 276, height: 392 } },
+    { name: 'icon_settings.png', region: { left: 1180, top: 538, width: 310, height: 322 } }
+  ];
+  await cutCells('artwork/m3/hud-icons-sheet-v1.png', icons, 'src/assets/ui', 96);
+
+  // 水彩纸纹理：缩到 768 宽平铺用
+  await sharp('artwork/m3/paper-texture-v1.png')
+    .resize({ width: 768, fit: 'inside' })
+    .webp({ quality: 80 })
+    .toFile('src/assets/ui/paper-texture.webp');
+  console.log('✓ paper-texture.webp');
+}
+
 async function main() {
   await processDrinks();
   await processRegulars();
   await processPassenger();
   await processDecor();
+  await processUi();
 }
 
 main().catch((e) => {

@@ -5,6 +5,7 @@ import { SaveManager } from '../save';
 import { DecorModal } from './decorModal';
 import { FundModal } from './fundModal';
 import { HandbookModal } from './handbookModal';
+import { hudIconHtml } from './hudIcons';
 import { RecipesModal } from './recipesModal';
 import { SettingsModal } from './settings';
 import { StaffModal } from './staffModal';
@@ -132,7 +133,7 @@ export class Hud {
       const btn = document.createElement('button');
       btn.className = `hud-btn ${isEnabled ? '' : 'disabled'}`;
       btn.title = btnDef.label;
-      btn.innerHTML = `<span class="btn-icon">${btnDef.icon}</span><span>${btnDef.label}</span>`;
+      btn.innerHTML = `<span class="btn-icon">${hudIconHtml(btnDef.id, btnDef.icon)}</span><span>${btnDef.label}</span>`;
 
       btn.addEventListener('pointerdown', (e) => e.stopPropagation());
       btn.addEventListener('click', (e) => {

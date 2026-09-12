@@ -132,6 +132,10 @@ html, body {
 
 .hud-btn .btn-icon {
   font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
 }
 
 .hud-btn:hover {
@@ -756,11 +760,12 @@ html, body {
 
 /* ==================== M3 UI：水彩纸面板与长线系统 ==================== */
 
-/* 半透明水彩纸质感（不遮挡店中央：面板偏侧且半透明） */
+/* 半透明水彩纸质感（不遮挡店中央：面板偏侧且半透明；T3.8 批次 E 叠加水彩纸纹理） */
 .modal-panel.paper-panel {
   background:
-    radial-gradient(ellipse at 20% 10%, rgba(255, 250, 235, 0.96), rgba(250, 240, 222, 0.94)),
-    repeating-linear-gradient(45deg, rgba(190, 150, 100, 0.03) 0 2px, transparent 2px 6px);
+    linear-gradient(rgba(255, 250, 238, 0.55), rgba(252, 244, 228, 0.55)),
+    url('./assets/ui/paper-texture.webp');
+  background-size: auto, 384px;
   backdrop-filter: blur(3px);
   border-color: #c9a06a;
 }
