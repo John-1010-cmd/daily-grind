@@ -134,17 +134,17 @@ export class SupplyModal {
           <div class="emergency-box ${isEmergencyEligible ? 'highlight' : 'dim'}">
             <div class="emergency-icon">🎁</div>
             <div class="emergency-info">
-              <div class="emergency-title">前辈的应急小包裹（无死局兜底）</div>
+              <div class="emergency-title">前辈放在门边的小包裹</div>
               <div class="emergency-desc">
                 ${
                   isEmergencyEligible
-                    ? `检测到金币不足、梦想基金额度也已用尽且原料已耗尽！前辈送来一份基础原料包（${emergencyList}），助你重新开工！`
-                    : `经营顺利中。当金币低于 🪙${EMERGENCY_PACKAGE_CONFIG.MIN_TRIGGER_GOLD}、基金额度用尽且无原料可出杯时自动激活免费领取。`
+                    ? `钱箱和原料暂时都空了，前辈悄悄留下了一份基础原料（${emergencyList}）。收下就能继续慢慢开店。`
+                    : `平常不用惦记它。钱箱低于 🪙${EMERGENCY_PACKAGE_CONFIG.MIN_TRIGGER_GOLD}、前辈的支持额度已用完且没有原料可出杯时，小包裹会自然出现。`
                 }
               </div>
             </div>
             <button class="btn-action btn-emergency" id="btn-claim-emergency" ${isEmergencyEligible ? '' : 'disabled'}>
-              ${isEmergencyEligible ? '免费领取应急包裹' : '无需申请'}
+              ${isEmergencyEligible ? '收下小包裹' : '包裹静静等着'}
             </button>
           </div>
 
@@ -197,7 +197,7 @@ export class SupplyModal {
   private buySupplies(ingredientId: string, amount: number, cost: number): void {
     const currentGold = this.saveManager.getState().gold;
     if (currentGold < cost) {
-      this.toast.show('金币不足以购买此规格！');
+      this.toast.show('钱箱暂时不够这批进货，少买一些或稍后再来看看吧~');
       return;
     }
 

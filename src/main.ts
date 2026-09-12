@@ -374,7 +374,7 @@ async function bootstrap() {
               toastManager.show(`已为客人接单：【${order.recipe.name}】（原料已锁定）`);
               syncInventoryToSave();
             } else {
-              toastManager.show('接单失败：原料不足，请先在右上角【进货】采购！');
+              toastManager.show('这杯的原料刚好用完了，先去【进货】看看，客人会耐心改点或改天再来~');
             }
           }
           return;
