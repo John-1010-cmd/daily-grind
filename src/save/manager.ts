@@ -1,6 +1,6 @@
 import { SAVE_CONFIG } from '../config';
 import {
-  DEFAULT_SAVE_STATE,
+  cloneDefaultSaveState,
   SaveStateV2,
   validateAndSanitizeSave
 } from './schema';
@@ -75,7 +75,7 @@ export class SaveManager {
   private loadFromStorage(): SaveStateV2 {
     const raw = this.storage.getItem(SAVE_CONFIG.STORAGE_KEY);
     if (!raw) {
-      const initial = { ...DEFAULT_SAVE_STATE, lastSavedAt: Date.now() };
+      const initial = { ...cloneDefaultSaveState(), lastSavedAt: Date.now() };
       this.writeToStorage(initial);
       return initial;
     }
@@ -89,7 +89,7 @@ export class SaveManager {
       return validation.data;
     } catch (e) {
       console.error('存档 JSON 损坏，已回退至初始默认状态:', e);
-      const fallback = { ...DEFAULT_SAVE_STATE, lastSavedAt: Date.now() };
+      const fallback = { ...cloneDefaultSaveState(), lastSavedAt: Date.now() };
       this.writeToStorage(fallback);
       return fallback;
     }
@@ -150,7 +150,7 @@ export class SaveManager {
 
   public resetToDefault(): SaveStateV2 {
     this.state = {
-      ...DEFAULT_SAVE_STATE,
+      ...cloneDefaultSaveState(),
       lastSavedAt: Date.now()
     };
     this.saveImmediate();

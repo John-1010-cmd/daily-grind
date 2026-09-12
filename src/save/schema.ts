@@ -106,6 +106,11 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
   catPosesSeen: []
 };
 
+/** 深拷贝默认存档：浅拷贝会让多个 SaveManager 实例共享嵌套对象（fund/staff/decor 等）造成串档 */
+export function cloneDefaultSaveState(): SaveStateV2 {
+  return JSON.parse(JSON.stringify(DEFAULT_SAVE_STATE)) as SaveStateV2;
+}
+
 function defaultM3Fields(): Pick<
   SaveStateV2,
   'decor' | 'equipmentLevel' | 'regulars' | 'staff' | 'fund' | 'achievements' | 'stats' | 'catPosesSeen'
@@ -166,7 +171,7 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {
       valid: false,
-      data: { ...DEFAULT_SAVE_STATE, lastSavedAt: Date.now() },
+      data: { ...cloneDefaultSaveState(), lastSavedAt: Date.now() },
       errors: ['存档必须是一个非空 JSON 对象']
     };
   }
@@ -180,7 +185,7 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
     errors.push(`未知或未来的存档版本: ${obj.version} (当前最高版本: ${SAVE_CONFIG.CURRENT_VERSION})`);
     return {
       valid: false,
-      data: { ...DEFAULT_SAVE_STATE, lastSavedAt: Date.now() },
+      data: { ...cloneDefaultSaveState(), lastSavedAt: Date.now() },
       errors
     };
   } else if (obj.version < SAVE_CONFIG.CURRENT_VERSION) {
