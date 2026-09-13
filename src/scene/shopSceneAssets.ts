@@ -1,4 +1,4 @@
-import mainShellUrl from '../assets/scene/scene-main-shell.webp';
+import mainExteriorUrl from '../assets/scene/scene-main-exterior.webp';
 import seasideSceneUrl from '../assets/scene/scene-seaside.webp';
 import catNookUrl from '../assets/scene/scene-cat-nook.webp';
 import counterBaseUrl from '../assets/scene/scene-counter-base.webp';
@@ -9,7 +9,7 @@ import tableTwoSeatUrl from '../assets/scene/scene-table-two-seat.webp';
 import { ShopId } from '../config';
 
 export const SHOP_SCENE_BACKGROUND_URLS: Record<ShopId, string> = {
-  main: mainShellUrl,
+  main: mainExteriorUrl,
   seaside: seasideSceneUrl
 };
 

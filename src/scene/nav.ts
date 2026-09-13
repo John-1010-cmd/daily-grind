@@ -29,6 +29,14 @@ export function isPointInWalkable(p: Point, zones: readonly Rect[] = WALKABLE_ZO
   return false;
 }
 
+export function isPointNavigable(
+  p: Point,
+  zones: readonly Rect[] = WALKABLE_ZONES,
+  obstacles: readonly Rect[] = []
+): boolean {
+  return isPointInWalkable(p, zones) && !obstacles.some((obstacle) => isPointInRect(p, obstacle));
+}
+
 export function clampToWalkable(
   p: Point,
   zones: readonly Rect[] = WALKABLE_ZONES,
@@ -53,6 +61,23 @@ export function clampToWalkable(
   }
 
   return bestPoint;
+}
+
+export function clampToNavigable(
+  p: Point,
+  zones: readonly Rect[] = WALKABLE_ZONES,
+  obstacles: readonly Rect[] = [],
+  waypoints: readonly NavWaypoint[] = NAV_WAYPOINTS
+): Point {
+  const walkablePoint = clampToWalkable(p, zones, waypoints);
+  if (isPointNavigable(walkablePoint, zones, obstacles)) return walkablePoint;
+
+  const candidates = waypoints.filter((waypoint) => isPointNavigable(waypoint, zones, obstacles));
+  const nearest = candidates.reduce<NavWaypoint | null>((best, waypoint) => {
+    if (!best) return waypoint;
+    return distance(walkablePoint, waypoint) < distance(walkablePoint, best) ? waypoint : best;
+  }, null);
+  return nearest ? { x: nearest.x, y: nearest.y } : walkablePoint;
 }
 
 /**
@@ -83,17 +108,37 @@ export function isLineWalkable(
   return true;
 }
 
+export function isLineNavigable(
+  p1: Point,
+  p2: Point,
+  stepSize: number,
+  zones: readonly Rect[] = WALKABLE_ZONES,
+  obstacles: readonly Rect[] = []
+): boolean {
+  const d = distance(p1, p2);
+  const steps = Math.max(1, Math.ceil(d / stepSize));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const pt = { x: p1.x + (p2.x - p1.x) * t, y: p1.y + (p2.y - p1.y) * t };
+    if (!isPointNavigable(pt, zones, obstacles)) return false;
+  }
+  return true;
+}
+
 export class NavGraph {
   private waypoints: Map<string, NavWaypoint> = new Map();
   private adjacency: Map<string, string[]> = new Map();
   private zones: readonly Rect[];
+  private obstacles: readonly Rect[];
 
   constructor(
     waypoints: readonly NavWaypoint[] = NAV_WAYPOINTS,
     edges: readonly NavEdge[] = NAV_EDGES,
-    zones: readonly Rect[] = WALKABLE_ZONES
+    zones: readonly Rect[] = WALKABLE_ZONES,
+    obstacles: readonly Rect[] = []
   ) {
     this.zones = zones;
+    this.obstacles = obstacles;
     for (const wp of waypoints) {
       this.waypoints.set(wp.id, wp);
       this.adjacency.set(wp.id, []);
@@ -182,7 +227,7 @@ export class NavGraph {
    */
   public route(from: Point, to: Point): Point[] {
     // If straight line is already clear, direct path
-    if (isLineWalkable(from, to, 16, this.zones)) {
+    if (isLineNavigable(from, to, 16, this.zones, this.obstacles)) {
       return [{ x: to.x, y: to.y }];
     }
 

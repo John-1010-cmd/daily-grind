@@ -27,10 +27,10 @@ import {
 } from './decorSprites';
 import {
   NavGraph,
-  clampToWalkable,
+  clampToNavigable,
   distance,
   findHitObject,
-  isPointInWalkable
+  isPointNavigable
 } from './nav';
 import { OwnerCharacter } from './ownerCharacter';
 import { sceneDepthForY } from './depth';
@@ -89,7 +89,8 @@ export class GreyboxScene {
     this.navGraph = new NavGraph(
       sceneDefinition.navWaypoints,
       sceneDefinition.navEdges,
-      sceneDefinition.walkableZones
+      sceneDefinition.walkableZones,
+      sceneDefinition.collisionFootprints
     );
 
     this.container = new Container();
@@ -141,7 +142,8 @@ export class GreyboxScene {
     this.navGraph = new NavGraph(
       sceneDefinition.navWaypoints,
       sceneDefinition.navEdges,
-      sceneDefinition.walkableZones
+      sceneDefinition.walkableZones,
+      sceneDefinition.collisionFootprints
     );
     this.targetPath = [];
     this.pendingInteractObject = null;
@@ -296,8 +298,9 @@ export class GreyboxScene {
         this.worldLayer.addChild(sprite.container);
       }
       sprite.setPosition(c.pos.x, c.pos.y - 4);
-      sprite.container.zIndex = sceneDepthForY(c.pos.y);
       const isMoving = c.state === 'ENTERING' || c.state === 'LEAVING';
+      sprite.setPose(isMoving ? 'standing' : 'sitting');
+      sprite.container.zIndex = sceneDepthForY(c.pos.y, c.seat.renderDepthOffset ?? 0);
       sprite.update(deltaSeconds, isMoving, c.facing);
 
       // If enjoying drink, show little coffee cup on table
@@ -517,9 +520,10 @@ export class GreyboxScene {
     this.pendingInteractObject = null;
     this.pendingCustomer = null;
     this.pendingCat = false;
-    const targetPoint = clampToWalkable(
+    const targetPoint = clampToNavigable(
       pt,
       this.sceneDefinition.walkableZones,
+      this.sceneDefinition.collisionFootprints,
       this.sceneDefinition.navWaypoints
     );
     this.targetPath = this.navGraph.route(this.playerPos, targetPoint);
@@ -558,7 +562,8 @@ export class GreyboxScene {
     this.drawCustomers(deltaSeconds);
     if (this.sceneDefinition.catEnabled) {
       this.catComponent.update(deltaSeconds);
-      this.catComponent.container.zIndex = sceneDepthForY(this.catComponent.getCurrentSpot().pos.y);
+      const catSpot = this.catComponent.getCurrentSpot();
+      this.catComponent.container.zIndex = sceneDepthForY(catSpot.pos.y, catSpot.renderDepthOffset);
     }
 
     if (this.clickFeedbackTime > 0) {
@@ -594,22 +599,24 @@ export class GreyboxScene {
 
         // Collision check with walkable zones (with axis sliding)
         let moved = false;
-        if (isPointInWalkable({ x: nextX, y: nextY }, this.sceneDefinition.walkableZones)) {
+        if (isPointNavigable({ x: nextX, y: nextY }, this.sceneDefinition.walkableZones, this.sceneDefinition.collisionFootprints)) {
           this.playerPos.x = nextX;
           this.playerPos.y = nextY;
           moved = true;
         } else if (
-          isPointInWalkable(
+          isPointNavigable(
             { x: nextX, y: this.playerPos.y },
-            this.sceneDefinition.walkableZones
+            this.sceneDefinition.walkableZones,
+            this.sceneDefinition.collisionFootprints
           )
         ) {
           this.playerPos.x = nextX;
           moved = true;
         } else if (
-          isPointInWalkable(
+          isPointNavigable(
             { x: this.playerPos.x, y: nextY },
-            this.sceneDefinition.walkableZones
+            this.sceneDefinition.walkableZones,
+            this.sceneDefinition.collisionFootprints
           )
         ) {
           this.playerPos.y = nextY;
@@ -634,6 +641,13 @@ export class GreyboxScene {
       else if (nextTarget.x < this.playerPos.x - 2) this.facing = 'left';
 
       if (dist <= step) {
+        if (!isPointNavigable(nextTarget, this.sceneDefinition.walkableZones, this.sceneDefinition.collisionFootprints)) {
+          this.targetPath = [];
+          this.pendingInteractObject = null;
+          this.pendingCustomer = null;
+          this.pendingCat = false;
+          return;
+        }
         this.playerPos.x = nextTarget.x;
         this.playerPos.y = nextTarget.y;
         this.targetPath.shift();
@@ -652,9 +666,19 @@ export class GreyboxScene {
         }
       } else {
         const angle = Math.atan2(nextTarget.y - this.playerPos.y, nextTarget.x - this.playerPos.x);
-        this.playerPos.x += Math.cos(angle) * step;
-        this.playerPos.y += Math.sin(angle) * step;
-        isMoving = true;
+        const candidate = {
+          x: this.playerPos.x + Math.cos(angle) * step,
+          y: this.playerPos.y + Math.sin(angle) * step
+        };
+        if (isPointNavigable(candidate, this.sceneDefinition.walkableZones, this.sceneDefinition.collisionFootprints)) {
+          this.playerPos = candidate;
+          isMoving = true;
+        } else {
+          this.targetPath = [];
+          this.pendingInteractObject = null;
+          this.pendingCustomer = null;
+          this.pendingCat = false;
+        }
       }
 
       this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);

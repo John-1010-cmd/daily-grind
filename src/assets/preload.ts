@@ -12,7 +12,7 @@ import tableIronUrl from './decor/table_iron.webp';
 import seasideLanternUrl from './decor/seaside-lantern.webp';
 import seasideShellsUrl from './decor/seaside-shells.webp';
 import sceneSeasideUrl from './scene/scene-seaside.webp';
-import mainShellUrl from './scene/scene-main-shell.webp';
+import mainExteriorUrl from './scene/scene-main-exterior.webp';
 import counterBaseUrl from './scene/scene-counter-base.webp';
 import equipmentStationUrl from './scene/scene-equipment-station.webp';
 import storageShelfUrl from './scene/scene-storage-shelf.webp';
@@ -21,11 +21,12 @@ import tableTwoSeatUrl from './scene/scene-table-two-seat.webp';
 import tableFourSeatUrl from './scene/scene-table-four-seat.webp';
 import ownerOneByFourUrl from './scene/owner-1x4.webp';
 import customerOneByFourUrl from './scene/customer-1x4.webp';
+import customerSeatedOneByFourUrl from './scene/customer-seated-1x4.webp';
 
 /** Pixi v8 不再替 Texture.from(url) 隐式加载；创建场景前统一预热所有 Pixi 位图。 */
 export const CORE_PIXI_ASSETS = [
   sceneSeasideUrl,
-  mainShellUrl,
+  mainExteriorUrl,
   counterBaseUrl,
   equipmentStationUrl,
   storageShelfUrl,
@@ -34,6 +35,7 @@ export const CORE_PIXI_ASSETS = [
   tableFourSeatUrl,
   ownerOneByFourUrl,
   customerOneByFourUrl,
+  customerSeatedOneByFourUrl,
   catBlinkUrl,
   catCurledUrl,
   catStretchUrl,

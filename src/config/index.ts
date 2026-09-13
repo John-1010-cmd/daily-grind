@@ -397,6 +397,10 @@ export interface TableSeatDef {
   name: string;
   seatPos: Point;
   interactPoint: Point;
+  /** 到达座位后的角色呈现；进出店时仍使用站姿。 */
+  pose?: 'sitting';
+  /** 允许前后排座椅相对桌面微调遮挡关系。 */
+  renderDepthOffset?: number;
 }
 
 export const INGREDIENT_DEFS: readonly IngredientDef[] = [
@@ -581,6 +585,7 @@ export interface ShopSceneDefinition {
   backgroundKey: ShopId;
   sceneObjects: readonly SceneObjectConfig[];
   walkableZones: readonly Rect[];
+  collisionFootprints: readonly Rect[];
   navWaypoints: readonly NavWaypoint[];
   navEdges: readonly NavEdge[];
   tableSeats: readonly TableSeatDef[];
@@ -643,32 +648,37 @@ export interface CatSpotDef {
   name: string;
   pos: Point;
   interactPoint: Point;
+  renderDepthOffset: number;
 }
 
 export const CAT_SPOTS: readonly CatSpotDef[] = [
   {
     id: 'spot_table_4',
     name: '窗边猫窝软垫',
-    pos: { x: 305, y: 375 },
-    interactPoint: { x: 365, y: 455 }
+    pos: { x: 310, y: 350 },
+    interactPoint: { x: 395, y: 465 },
+    renderDepthOffset: 88
   },
   {
     id: 'spot_table_3',
-    name: '窗边一号桌椅',
-    pos: { x: 430, y: 480 },
-    interactPoint: { x: 540, y: 520 }
+    name: '入口边的暖光地板',
+    pos: { x: 275, y: 570 },
+    interactPoint: { x: 335, y: 610 },
+    renderDepthOffset: 8
   },
   {
     id: 'spot_table_2',
-    name: '中央二号桌旁',
-    pos: { x: 720, y: 545 },
-    interactPoint: { x: 850, y: 590 }
+    name: '右墙安静角落',
+    pos: { x: 1215, y: 590 },
+    interactPoint: { x: 1160, y: 650 },
+    renderDepthOffset: 8
   },
   {
     id: 'spot_window',
     name: '阳光地板',
-    pos: { x: 455, y: 590 },
-    interactPoint: { x: 520, y: 625 }
+    pos: { x: 520, y: 610 },
+    interactPoint: { x: 590, y: 655 },
+    renderDepthOffset: 8
   }
 ] as const;
 
@@ -700,6 +710,8 @@ export const CHAR_ANIM_CONFIG = {
   OWNER_HEIGHT: 238,
   CUSTOMER_WIDTH: 70,
   CUSTOMER_HEIGHT: 225,
+  CUSTOMER_SEATED_WIDTH: 68,
+  CUSTOMER_SEATED_HEIGHT: 164,
   CUSTOMER_TINT_SOFTEN: 0.82,
   SHADOW_WIDTH: 24,
   SHADOW_HEIGHT: 7
@@ -738,10 +750,10 @@ export interface SceneModulePlacement {
 /** 2:1 斜投影模块布局。所有落点、尺寸和深度偏移只在配置层定义。 */
 export const MAIN_2P5D_MODULES = {
   static: [
-    { id: 'cat_nook', asset: 'catNook', x: 304, y: 397, width: 330, anchorX: 0.5, anchorY: 1, depthOffset: -18 },
+    { id: 'cat_nook', asset: 'catNook', x: 310, y: 430, width: 340, anchorX: 0.5, anchorY: 1, depthOffset: -18 },
     { id: 'storage_shelf', asset: 'storageShelf', x: 692, y: 340, width: 365, anchorX: 0.5, anchorY: 1, depthOffset: -22 },
     { id: 'counter', asset: 'counterBase', x: 1082, y: 460, width: 480, anchorX: 0.5, anchorY: 1, depthOffset: 0 },
-    { id: 'equipment_station', asset: 'equipmentStation', x: 1082, y: 370, width: 245, anchorX: 0.5, anchorY: 1, depthOffset: 96 }
+    { id: 'equipment_station', asset: 'equipmentStation', x: 1082, y: 318, width: 195, anchorX: 0.5, anchorY: 1, depthOffset: 150 }
   ] as readonly SceneModulePlacement[],
   tableSlots: [
     { id: 'table_1', x: 430, y: 520, width: 205 },
@@ -761,8 +773,8 @@ export const MAIN_2P5D_SCENE_OBJECTS: readonly SceneObjectConfig[] = [
   { id: 'counter', name: '蜂蜜木吧台', x: 835, y: 225, width: 490, height: 255, color: 0x8b5428, interactPoint: { x: 865, y: 505 }, hitbox: { x: 820, y: 210, width: 520, height: 285 }, description: '模块化吧台，工作位与取餐位清楚分开。' },
   { id: 'espresso_machine', name: '意式工作站', x: 970, y: 250, width: 260, height: 130, color: 0x475569, interactPoint: { x: 925, y: 505 }, hitbox: { x: 955, y: 230, width: 290, height: 155 }, description: '咖啡机、磨豆机和糕点柜组成的工作站。' },
   { id: 'pastry_case', name: '玻璃糕点柜', x: 1110, y: 280, width: 145, height: 110, color: 0xd4a373, interactPoint: { x: 990, y: 510 }, hitbox: { x: 1095, y: 265, width: 170, height: 130 }, description: '小小的玻璃柜里摆着今日烘焙。' },
-  { id: 'table_1', name: '窗边一号桌', x: 320, y: 400, width: 220, height: 150, color: 0xb58451, interactPoint: { x: 540, y: 520 }, hitbox: { x: 305, y: 385, width: 245, height: 180 }, description: '窗边的安静座位。' },
-  { id: 'table_2', name: '中央二号桌', x: 610, y: 455, width: 235, height: 165, color: 0xb58451, interactPoint: { x: 850, y: 590 }, hitbox: { x: 595, y: 440, width: 265, height: 195 }, description: '留出宽阔过道的中央座位。' },
+  { id: 'table_1', name: '窗边一号桌', x: 320, y: 400, width: 220, height: 150, color: 0xb58451, interactPoint: { x: 540, y: 570 }, hitbox: { x: 305, y: 385, width: 245, height: 180 }, description: '窗边的安静座位。' },
+  { id: 'table_2', name: '中央二号桌', x: 610, y: 455, width: 235, height: 165, color: 0xb58451, interactPoint: { x: 850, y: 640 }, hitbox: { x: 595, y: 440, width: 265, height: 195 }, description: '留出宽阔过道的中央座位。' },
   { id: 'table_3', name: '右侧三号桌', x: 920, y: 520, width: 250, height: 175, color: 0xb58451, interactPoint: { x: 900, y: 675 }, hitbox: { x: 905, y: 505, width: 280, height: 205 }, description: '靠近右墙、能听见磨豆声的一桌。' }
 ] as const;
 
@@ -772,6 +784,14 @@ export const MAIN_2P5D_WALKABLE_ZONES: readonly Rect[] = [
   { x: 780, y: 465, width: 280, height: 180 }
 ] as const;
 
+/** 家具在地面的实际占位，独立于可走区域，避免角色从桌椅/猫窝中穿过。 */
+export const MAIN_2P5D_COLLISION_FOOTPRINTS: readonly Rect[] = [
+  { x: 180, y: 365, width: 270, height: 65 },
+  { x: 350, y: 472, width: 160, height: 78 },
+  { x: 640, y: 535, width: 175, height: 92 },
+  { x: 955, y: 592, width: 190, height: 88 }
+] as const;
+
 export const MAIN_2P5D_NAV_WAYPOINTS: readonly NavWaypoint[] = [
   { id: 'entry', name: '入口', x: 150, y: 635 },
   { id: 'left_aisle', name: '窗边走道', x: 340, y: 610 },
@@ -779,8 +799,8 @@ export const MAIN_2P5D_NAV_WAYPOINTS: readonly NavWaypoint[] = [
   { id: 'center_back', name: '中央后道', x: 600, y: 455 },
   { id: 'counter_left', name: '吧台左侧', x: 865, y: 505 },
   { id: 'counter_mid', name: '工作站前', x: 950, y: 535 },
-  { id: 'table_1_front', name: '一号桌旁', x: 540, y: 520 },
-  { id: 'table_2_front', name: '二号桌旁', x: 850, y: 590 },
+  { id: 'table_1_front', name: '一号桌旁', x: 540, y: 570 },
+  { id: 'table_2_front', name: '二号桌旁', x: 850, y: 640 },
   { id: 'table_3_front', name: '三号桌旁', x: 900, y: 675 },
   { id: 'right_aisle', name: '右侧通道', x: 1190, y: 680 }
 ] as const;
@@ -795,18 +815,18 @@ export const MAIN_2P5D_NAV_EDGES: readonly NavEdge[] = [
 ] as const;
 
 export const MAIN_2P5D_TABLE_SEATS: readonly TableSeatDef[] = [
-  { id: 'table_1_a', tableId: 'table_1', name: '窗边一号桌 A', seatPos: { x: 388, y: 470 }, interactPoint: { x: 540, y: 520 } },
-  { id: 'table_1_b', tableId: 'table_1', name: '窗边一号桌 B', seatPos: { x: 475, y: 525 }, interactPoint: { x: 540, y: 520 } },
-  { id: 'table_1_c', tableId: 'table_1', name: '窗边一号桌 C', seatPos: { x: 350, y: 510 }, interactPoint: { x: 540, y: 520 } },
-  { id: 'table_1_d', tableId: 'table_1', name: '窗边一号桌 D', seatPos: { x: 500, y: 480 }, interactPoint: { x: 540, y: 520 } },
-  { id: 'table_2_a', tableId: 'table_2', name: '中央二号桌 A', seatPos: { x: 680, y: 535 }, interactPoint: { x: 850, y: 590 } },
-  { id: 'table_2_b', tableId: 'table_2', name: '中央二号桌 B', seatPos: { x: 770, y: 590 }, interactPoint: { x: 850, y: 590 } },
-  { id: 'table_2_c', tableId: 'table_2', name: '中央二号桌 C', seatPos: { x: 645, y: 575 }, interactPoint: { x: 850, y: 590 } },
-  { id: 'table_2_d', tableId: 'table_2', name: '中央二号桌 D', seatPos: { x: 800, y: 545 }, interactPoint: { x: 850, y: 590 } },
-  { id: 'table_3_a', tableId: 'table_3', name: '右侧三号桌 A', seatPos: { x: 995, y: 600 }, interactPoint: { x: 900, y: 675 } },
-  { id: 'table_3_b', tableId: 'table_3', name: '右侧三号桌 B', seatPos: { x: 1090, y: 650 }, interactPoint: { x: 900, y: 675 } },
-  { id: 'table_3_c', tableId: 'table_3', name: '右侧三号桌 C', seatPos: { x: 950, y: 645 }, interactPoint: { x: 900, y: 675 } },
-  { id: 'table_3_d', tableId: 'table_3', name: '右侧三号桌 D', seatPos: { x: 1125, y: 610 }, interactPoint: { x: 900, y: 675 } }
+  { id: 'table_1_a', tableId: 'table_1', name: '窗边一号桌 A', seatPos: { x: 388, y: 470 }, interactPoint: { x: 540, y: 570 }, pose: 'sitting', renderDepthOffset: -18 },
+  { id: 'table_1_b', tableId: 'table_1', name: '窗边一号桌 B', seatPos: { x: 475, y: 535 }, interactPoint: { x: 540, y: 570 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_1_c', tableId: 'table_1', name: '窗边一号桌 C', seatPos: { x: 350, y: 520 }, interactPoint: { x: 540, y: 570 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_1_d', tableId: 'table_1', name: '窗边一号桌 D', seatPos: { x: 500, y: 480 }, interactPoint: { x: 540, y: 570 }, pose: 'sitting', renderDepthOffset: -18 },
+  { id: 'table_2_a', tableId: 'table_2', name: '中央二号桌 A', seatPos: { x: 680, y: 535 }, interactPoint: { x: 850, y: 640 }, pose: 'sitting', renderDepthOffset: -18 },
+  { id: 'table_2_b', tableId: 'table_2', name: '中央二号桌 B', seatPos: { x: 770, y: 600 }, interactPoint: { x: 850, y: 640 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_2_c', tableId: 'table_2', name: '中央二号桌 C', seatPos: { x: 645, y: 585 }, interactPoint: { x: 850, y: 640 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_2_d', tableId: 'table_2', name: '中央二号桌 D', seatPos: { x: 800, y: 545 }, interactPoint: { x: 850, y: 640 }, pose: 'sitting', renderDepthOffset: -18 },
+  { id: 'table_3_a', tableId: 'table_3', name: '右侧三号桌 A', seatPos: { x: 995, y: 600 }, interactPoint: { x: 900, y: 675 }, pose: 'sitting', renderDepthOffset: -18 },
+  { id: 'table_3_b', tableId: 'table_3', name: '右侧三号桌 B', seatPos: { x: 1090, y: 660 }, interactPoint: { x: 900, y: 675 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_3_c', tableId: 'table_3', name: '右侧三号桌 C', seatPos: { x: 950, y: 655 }, interactPoint: { x: 900, y: 675 }, pose: 'sitting', renderDepthOffset: 18 },
+  { id: 'table_3_d', tableId: 'table_3', name: '右侧三号桌 D', seatPos: { x: 1125, y: 610 }, interactPoint: { x: 900, y: 675 }, pose: 'sitting', renderDepthOffset: -18 }
 ] as const;
 
 export const FURNITURE_EXPANSION_CONFIG = {
@@ -826,7 +846,7 @@ export const FURNITURE_EXPANSION_CONFIG = {
   counterVisuals: {
     bodyWidths: [480, 500, 525, 550],
     equipmentWidths: [210, 225, 238, 245],
-    secondaryStation: { x: 1215, y: 365, width: 155, fromLevel: 2, depthOffset: 102 }
+    secondaryStation: { x: 1215, y: 318, width: 155, fromLevel: 2, depthOffset: 150 }
   },
   insufficientGoldCopy: '钱箱还差一点点，先招待几位客人再来看看吧。',
   purchaseSuccessCopy: '新家具已经稳稳摆好，随时都能免费移动或收起。'
@@ -839,6 +859,7 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
     backgroundKey: 'main',
     sceneObjects: MAIN_2P5D_SCENE_OBJECTS,
     walkableZones: MAIN_2P5D_WALKABLE_ZONES,
+    collisionFootprints: MAIN_2P5D_COLLISION_FOOTPRINTS,
     navWaypoints: MAIN_2P5D_NAV_WAYPOINTS,
     navEdges: MAIN_2P5D_NAV_EDGES,
     tableSeats: MAIN_2P5D_TABLE_SEATS,
@@ -853,6 +874,7 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
     backgroundKey: 'seaside',
     sceneObjects: SEASIDE_SCENE_OBJECTS,
     walkableZones: SEASIDE_WALKABLE_ZONES,
+    collisionFootprints: [],
     navWaypoints: SEASIDE_NAV_WAYPOINTS,
     navEdges: SEASIDE_NAV_EDGES,
     tableSeats: SEASIDE_TABLE_SEATS,

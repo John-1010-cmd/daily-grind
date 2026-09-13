@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import customerUrl from '../assets/scene/customer-1x4.webp';
+import customerSeatedUrl from '../assets/scene/customer-seated-1x4.webp';
 import { CHAR_ANIM_CONFIG } from '../config';
 
 /** 将颜色向白色混合，避免深色 tint 把浅色衣服压得过暗 */
@@ -19,8 +20,9 @@ export function softenTint(color: number, amount: number): number {
 export class CustomerCharacter {
   public readonly container: Container;
   private characterSprite: Sprite;
-  private readonly baseScaleX: number;
-  private readonly baseScaleY: number;
+  private baseScaleX: number;
+  private baseScaleY: number;
+  private pose: 'standing' | 'sitting' = 'standing';
 
   private walkPhase = 0;
   private idlePhase = 0;
@@ -42,6 +44,20 @@ export class CustomerCharacter {
     this.baseScaleY = this.characterSprite.scale.y;
     this.characterSprite.tint = softenTint(tint, CHAR_ANIM_CONFIG.CUSTOMER_TINT_SOFTEN);
     this.container.addChild(this.characterSprite);
+  }
+
+  public setPose(pose: 'standing' | 'sitting'): void {
+    if (this.pose === pose) return;
+    this.pose = pose;
+    this.characterSprite.texture = Texture.from(pose === 'sitting' ? customerSeatedUrl : customerUrl);
+    this.characterSprite.width = pose === 'sitting'
+      ? CHAR_ANIM_CONFIG.CUSTOMER_SEATED_WIDTH
+      : CHAR_ANIM_CONFIG.CUSTOMER_WIDTH;
+    this.characterSprite.height = pose === 'sitting'
+      ? CHAR_ANIM_CONFIG.CUSTOMER_SEATED_HEIGHT
+      : CHAR_ANIM_CONFIG.CUSTOMER_HEIGHT;
+    this.baseScaleX = this.characterSprite.scale.x;
+    this.baseScaleY = this.characterSprite.scale.y;
   }
 
   public update(deltaSeconds: number, isMoving: boolean, facing: 'left' | 'right'): void {
