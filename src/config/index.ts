@@ -51,6 +51,21 @@ export const SCREEN_CONFIG = {
   LETTERBOX_BACKGROUND: '#1b140e'
 } as const;
 
+/** M6 作品集验收预算：构建、运行测量与触控布局共同消费这一组阈值。 */
+export const PERFORMANCE_BUDGETS = {
+  FIRST_SCREEN_GZIP_MAX_BYTES: 6 * 1024 * 1024,
+  TTI_MAX_MS: 5_000,
+  MIN_FPS_1080P: 50,
+  MIN_TOUCH_TARGET_PX: 44,
+  FPS_SAMPLE_DURATION_MS: 5_000,
+  FAST_4G_SIMULATION: {
+    downloadBytesPerSecond: 512 * 1024,
+    roundTripMs: 150
+  },
+  DESKTOP_VIEWPORT: { width: 1920, height: 1080 },
+  MOBILE_LANDSCAPE_VIEWPORT: { width: 844, height: 390 }
+} as const;
+
 export const PLAYER_CONFIG = {
   SPEED: 240,
   WIDTH: 32,

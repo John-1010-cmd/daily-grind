@@ -4,6 +4,7 @@ import { GameClock } from './clock';
 import {
   REGULAR_CONFIG,
   REGULAR_DEFS,
+  PERFORMANCE_BUDGETS,
   SCREEN_CONFIG,
   SHOP_SCENES,
   SHOP_SIMULATION_CONFIG,
@@ -320,6 +321,14 @@ async function bootstrap() {
       winHeight / SCREEN_CONFIG.DESIGN_HEIGHT
     );
     viewportContainer.style.transform = `scale(${scale})`;
+    viewportContainer.style.setProperty(
+      '--minimum-touch-target',
+      `${PERFORMANCE_BUDGETS.MIN_TOUCH_TARGET_PX}px`
+    );
+    viewportContainer.style.setProperty(
+      '--touch-target-compensation',
+      `${Math.max(1, 1 / scale)}`
+    );
   }
 
   window.addEventListener('resize', updateViewportScale);
@@ -797,6 +806,46 @@ async function bootstrap() {
     }
   });
 
+  performance.mark('daily-grind-interactive');
+  const interactiveMark = performance.getEntriesByName('daily-grind-interactive').at(-1);
+  if (interactiveMark) {
+    document.documentElement.dataset.ttiMs = interactiveMark.startTime.toFixed(1);
+    const initialTransfers = [
+      ...performance.getEntriesByType('navigation'),
+      ...performance.getEntriesByType('resource')
+    ] as PerformanceResourceTiming[];
+    const initialResourceBytes = initialTransfers.reduce(
+      (sum, entry) =>
+        sum + (entry.encodedBodySize || entry.decodedBodySize || entry.transferSize),
+      0
+    );
+    const fast4gTransferMs =
+      (initialResourceBytes / PERFORMANCE_BUDGETS.FAST_4G_SIMULATION.downloadBytesPerSecond) *
+      1000;
+    document.documentElement.dataset.initialResourceBytes = `${initialResourceBytes}`;
+    document.documentElement.dataset.fast4gTtiMs = (
+      interactiveMark.startTime +
+      PERFORMANCE_BUDGETS.FAST_4G_SIMULATION.roundTripMs +
+      fast4gTransferMs
+    ).toFixed(1);
+  }
+  document.documentElement.dataset.appReady = 'true';
+
+  let measuredFrames = 0;
+  const fpsStartedAt = performance.now();
+  const measureFrameRate = (now: number) => {
+    measuredFrames += 1;
+    const elapsedMs = now - fpsStartedAt;
+    if (elapsedMs >= PERFORMANCE_BUDGETS.FPS_SAMPLE_DURATION_MS) {
+      document.documentElement.dataset.fps = (
+        (measuredFrames * 1000) /
+        elapsedMs
+      ).toFixed(1);
+      return;
+    }
+    requestAnimationFrame(measureFrameRate);
+  };
+  requestAnimationFrame(measureFrameRate);
   console.log('Daily Grind v1 已启动。');
 }
 

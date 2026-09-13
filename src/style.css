@@ -65,6 +65,16 @@ html, body {
   pointer-events: auto;
 }
 
+/* M6：父级画布缩小时反向补偿，保证屏幕上的触控热区仍不小于预算值。 */
+button {
+  min-width: calc(var(--minimum-touch-target) * var(--touch-target-compensation));
+  min-height: calc(var(--minimum-touch-target) * var(--touch-target-compensation));
+}
+
+input[type='range'] {
+  min-height: calc(var(--minimum-touch-target) * var(--touch-target-compensation));
+}
+
 /* HUD layout */
 .hud-layer {
   position: absolute;
@@ -199,6 +209,8 @@ html, body {
 .modal-panel {
   width: 520px;
   max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
   background: #fdfbf7;
   border: 2px solid #c99355;
   border-radius: 20px;
@@ -973,6 +985,8 @@ html, body {
   padding: 7px 4px;
   border-bottom: 1px dashed #ecdac6;
   font-size: 14px;
+  min-height: calc(var(--minimum-touch-target) * var(--touch-target-compensation));
+  cursor: pointer;
 }
 
 .staff-duty-row input[type='checkbox'] {
