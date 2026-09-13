@@ -298,8 +298,18 @@ export class GreyboxScene {
         this.worldLayer.addChild(sprite.container);
       }
       sprite.setPosition(c.pos.x, c.pos.y - 4);
-      const isMoving = c.state === 'ENTERING' || c.state === 'LEAVING';
-      sprite.setPose(isMoving ? 'standing' : 'sitting');
+      const isStanding = c.state === 'ENTERING' || c.state === 'LEAVING' || c.state === 'WAITING_FOR_SEAT';
+      const isMoving = c.state === 'ENTERING' || c.state === 'LEAVING' ||
+        (c.state === 'WAITING_FOR_SEAT' && c.walkPath.length > 0);
+      sprite.setPose(isStanding ? 'standing' : 'sitting');
+      sprite.setActivity(
+        c.state === 'ENJOYING_DRINK'
+          ? c.chosenRecipe?.lineId === 'bakery' ? 'eating' : 'drinking'
+          : c.state === 'SEATED_CHOOSING' || c.state === 'WAITING_FOR_ORDER' ||
+              c.state === 'WAITING_FOR_DRINK' || c.state === 'WAITING_TO_PAY'
+            ? 'phone'
+            : 'idle'
+      );
       sprite.container.zIndex = sceneDepthForY(c.pos.y, c.seat.renderDepthOffset ?? 0);
       sprite.update(deltaSeconds, isMoving, c.facing);
 

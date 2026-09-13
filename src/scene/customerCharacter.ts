@@ -1,6 +1,9 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import customerUrl from '../assets/scene/customer-1x4.webp';
 import customerSeatedUrl from '../assets/scene/customer-seated-1x4.webp';
+import customerDrinkingUrl from '../assets/scene/customer-drinking-1x4.webp';
+import customerEatingUrl from '../assets/scene/customer-eating-1x4.webp';
+import customerPhoneUrl from '../assets/scene/customer-phone-1x4.webp';
 import { CHAR_ANIM_CONFIG } from '../config';
 
 /** 将颜色向白色混合，避免深色 tint 把浅色衣服压得过暗 */
@@ -11,6 +14,8 @@ export function softenTint(color: number, amount: number): number {
   const mix = (c: number) => Math.round(c + (255 - c) * amount);
   return (mix(r) << 16) | (mix(g) << 8) | mix(b);
 }
+
+export type CustomerActivity = 'idle' | 'phone' | 'drinking' | 'eating';
 
 /**
  * 路人/常客顾客角色（T3.8 批次 C）。
@@ -23,9 +28,13 @@ export class CustomerCharacter {
   private baseScaleX: number;
   private baseScaleY: number;
   private pose: 'standing' | 'sitting' = 'standing';
+  private activity: CustomerActivity = 'idle';
+  private showingActionFrame = false;
+  private textureKey = 'standing';
 
   private walkPhase = 0;
   private idlePhase = 0;
+  private activityPhase = 0;
 
   constructor(tint: number) {
     this.container = new Container();
@@ -49,11 +58,44 @@ export class CustomerCharacter {
   public setPose(pose: 'standing' | 'sitting'): void {
     if (this.pose === pose) return;
     this.pose = pose;
-    this.characterSprite.texture = Texture.from(pose === 'sitting' ? customerSeatedUrl : customerUrl);
-    this.characterSprite.width = pose === 'sitting'
+    this.showingActionFrame = false;
+    this.applyTexture();
+  }
+
+  public setActivity(activity: CustomerActivity): void {
+    if (this.activity === activity) return;
+    this.activity = activity;
+    this.activityPhase = 0;
+    this.showingActionFrame = activity !== 'idle';
+    this.applyTexture();
+  }
+
+  public getActivity(): CustomerActivity {
+    return this.activity;
+  }
+
+  private applyTexture(): void {
+    const textureKey = this.pose === 'standing'
+      ? 'standing'
+      : this.showingActionFrame && this.activity !== 'idle'
+        ? this.activity
+        : 'sitting';
+    if (textureKey === this.textureKey) return;
+    this.textureKey = textureKey;
+    const textureUrl = textureKey === 'standing'
+      ? customerUrl
+      : textureKey === 'drinking'
+        ? customerDrinkingUrl
+        : textureKey === 'eating'
+          ? customerEatingUrl
+          : textureKey === 'phone'
+            ? customerPhoneUrl
+          : customerSeatedUrl;
+    this.characterSprite.texture = Texture.from(textureUrl);
+    this.characterSprite.width = this.pose === 'sitting'
       ? CHAR_ANIM_CONFIG.CUSTOMER_SEATED_WIDTH
       : CHAR_ANIM_CONFIG.CUSTOMER_WIDTH;
-    this.characterSprite.height = pose === 'sitting'
+    this.characterSprite.height = this.pose === 'sitting'
       ? CHAR_ANIM_CONFIG.CUSTOMER_SEATED_HEIGHT
       : CHAR_ANIM_CONFIG.CUSTOMER_HEIGHT;
     this.baseScaleX = this.characterSprite.scale.x;
@@ -69,7 +111,20 @@ export class CustomerCharacter {
       const bounce = Math.abs(Math.sin(this.walkPhase)) * CHAR_ANIM_CONFIG.BODY_BOUNCE_AMPLITUDE;
       this.characterSprite.y = -bounce;
       this.characterSprite.rotation = Math.sin(this.walkPhase) * CHAR_ANIM_CONFIG.BODY_TILT_AMPLITUDE;
+    } else if (this.pose === 'sitting' && this.activity !== 'idle') {
+      this.activityPhase += deltaSeconds * CHAR_ANIM_CONFIG.CONSUME_CYCLE_SPEED;
+      const actionFrame = Math.sin(this.activityPhase) > CHAR_ANIM_CONFIG.CONSUME_ACTION_THRESHOLD;
+      if (actionFrame !== this.showingActionFrame) {
+        this.showingActionFrame = actionFrame;
+        this.applyTexture();
+      }
+      this.characterSprite.y = -Math.abs(Math.sin(this.activityPhase)) * CHAR_ANIM_CONFIG.CONSUME_BOB_AMPLITUDE;
+      this.characterSprite.rotation = Math.sin(this.activityPhase) * CHAR_ANIM_CONFIG.CONSUME_TILT_AMPLITUDE;
     } else {
+      if (this.showingActionFrame) {
+        this.showingActionFrame = false;
+        this.applyTexture();
+      }
       this.idlePhase += deltaSeconds * CHAR_ANIM_CONFIG.IDLE_BREATH_SPEED;
 
       const breath = Math.sin(this.idlePhase) * CHAR_ANIM_CONFIG.IDLE_BREATH_SCALE;

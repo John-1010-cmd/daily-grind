@@ -22,6 +22,9 @@ import tableFourSeatUrl from './scene/scene-table-four-seat.webp';
 import ownerOneByFourUrl from './scene/owner-1x4.webp';
 import customerOneByFourUrl from './scene/customer-1x4.webp';
 import customerSeatedOneByFourUrl from './scene/customer-seated-1x4.webp';
+import customerDrinkingOneByFourUrl from './scene/customer-drinking-1x4.webp';
+import customerEatingOneByFourUrl from './scene/customer-eating-1x4.webp';
+import customerPhoneOneByFourUrl from './scene/customer-phone-1x4.webp';
 
 /** Pixi v8 不再替 Texture.from(url) 隐式加载；创建场景前统一预热所有 Pixi 位图。 */
 export const CORE_PIXI_ASSETS = [
@@ -36,6 +39,9 @@ export const CORE_PIXI_ASSETS = [
   ownerOneByFourUrl,
   customerOneByFourUrl,
   customerSeatedOneByFourUrl,
+  customerDrinkingOneByFourUrl,
+  customerEatingOneByFourUrl,
+  customerPhoneOneByFourUrl,
   catBlinkUrl,
   catCurledUrl,
   catStretchUrl,

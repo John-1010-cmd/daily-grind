@@ -26,10 +26,16 @@ export function createShopRuntime(
   ledger: EconomyLedger,
   saveManager: SaveManager
 ): ShopRuntime {
-  const navGraph = new NavGraph(scene.navWaypoints, scene.navEdges, scene.walkableZones);
+  const navGraph = new NavGraph(
+    scene.navWaypoints,
+    scene.navEdges,
+    scene.walkableZones,
+    scene.collisionFootprints
+  );
   const orderStateMachine = new OrderStateMachine(inventory, ledger, saveManager);
   const customerManager = new CustomerManager(navGraph, inventory, orderStateMachine, {
     tableSeats: scene.tableSeats,
+    queueSpots: scene.queueSpots,
     spawnPos: scene.customerSpawn,
     exitPos: scene.customerExit
   });

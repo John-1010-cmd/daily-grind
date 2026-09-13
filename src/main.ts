@@ -2,6 +2,7 @@ import { Application, Assets, Graphics } from 'pixi.js';
 import { CORE_PIXI_ASSETS } from './assets/preload';
 import { GameClock } from './clock';
 import {
+  CUSTOMER_CONFIG,
   REGULAR_CONFIG,
   REGULAR_DEFS,
   PERFORMANCE_BUDGETS,
@@ -40,6 +41,7 @@ import {
 import { StaffMember } from './staff';
 import {
   DecorModal,
+  BaristaModal,
   FundModal,
   HandbookModal,
   Hud,
@@ -90,6 +92,7 @@ async function bootstrap() {
     const runtime = shopRuntimes[shopId];
     runtime.customerManager.setSceneOptions({
       tableSeats: furnitureManager.getActiveSeats(shopId, runtime.scene.tableSeats),
+      queueSpots: runtime.scene.queueSpots,
       spawnPos: runtime.scene.customerSpawn,
       exitPos: runtime.scene.customerExit
     });
@@ -362,6 +365,8 @@ async function bootstrap() {
   const toastManager = new ToastManager(uiRoot);
   const worldOverlay = new WorldOverlay(uiRoot);
   const storyModal = new StoryModal(uiRoot);
+  const baristaModal = new BaristaModal(uiRoot);
+  let playerBaristaOrderId: string | null = null;
   toastManagerRef.current = toastManager;
   storyModalRef.current = storyModal;
 
@@ -380,6 +385,14 @@ async function bootstrap() {
     initialPlayerPos,
     {
       onCustomerInteract: (customer) => {
+        if (customer.state === 'WAITING_FOR_SEAT') {
+          customerManager.setBubble(
+            customer,
+            '前面有空位我就过去，先在吧台边闻闻咖啡香~',
+            CUSTOMER_CONFIG.QUEUE_BUBBLE_DURATION_SECONDS
+          );
+          return;
+        }
         const order = customer.orderId ? orderStateMachine.getOrder(customer.orderId) : undefined;
 
         // A. Waiting for order -> Take order!
@@ -462,10 +475,22 @@ async function bootstrap() {
               return;
             }
             const nextOrder = waitingBrew[0];
-            orderStateMachine.claimTask(nextOrder.id, 'BREW', 'player');
-            orderStateMachine.startTask(nextOrder.id, 'BREW', 'player');
-            audioManager.playPreparationSequence();
-            toastManager.show(`☕ 开始制作【${nextOrder.recipe.name}】...`);
+            if (baristaModal.isOpen()) return;
+            if (!orderStateMachine.claimTask(nextOrder.id, 'BREW', 'player')) return;
+            baristaModal.open({
+              recipeName: nextOrder.recipe.name,
+              onStart: () => {
+                const started = orderStateMachine.startTask(nextOrder.id, 'BREW', 'player');
+                if (!started) return false;
+                playerBaristaOrderId = nextOrder.id;
+                audioManager.playPreparationSequence();
+                toastManager.show(`☕ 开始制作【${nextOrder.recipe.name}】...`);
+                return true;
+              },
+              onCancel: () => {
+                orderStateMachine.releaseTask(nextOrder.id, 'BREW', 'player');
+              }
+            });
             return;
           }
 
@@ -589,6 +614,7 @@ async function bootstrap() {
     );
     runtime.customerManager.setSceneOptions({
       tableSeats: furnitureManager.getActiveSeats(activeShopId, runtime.scene.tableSeats),
+      queueSpots: runtime.scene.queueSpots,
       spawnPos: runtime.scene.customerSpawn,
       exitPos: runtime.scene.customerExit
     });
@@ -763,6 +789,15 @@ async function bootstrap() {
     for (const b of finishedBrews) {
       audioManager.playSfx('cup');
       toastManager.show(`✨【${b.recipe.name}】已萃取完成！请前往吧台取杯送餐。`);
+    }
+    if (playerBaristaOrderId) {
+      const playerOrder = orderStateMachine.getOrder(playerBaristaOrderId);
+      if (playerOrder?.state === 'BREWING') {
+        baristaModal.updateProgress(playerOrder.brewProgress);
+      } else {
+        if (playerOrder?.state === 'WAITING_TO_SERVE') baristaModal.complete();
+        playerBaristaOrderId = null;
+      }
     }
 
     // Update customers

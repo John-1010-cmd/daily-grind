@@ -589,6 +589,7 @@ export interface ShopSceneDefinition {
   navWaypoints: readonly NavWaypoint[];
   navEdges: readonly NavEdge[];
   tableSeats: readonly TableSeatDef[];
+  queueSpots: readonly TableSeatDef[];
   playerStart: Point;
   customerSpawn: Point;
   customerExit: Point;
@@ -684,8 +685,14 @@ export const CAT_SPOTS: readonly CatSpotDef[] = [
 
 export const CAT_CONFIG = {
   POSE_CHANGE_INTERVAL: 18,
+  POSE_INTERVAL_VARIANCE: 8,
   RELOCATE_INTERVAL: 75,
   BREATH_SPEED: 2.2,
+  BREATH_AMPLITUDE: 0.025,
+  BREATH_WIDTH_FACTOR: 0.5,
+  AWAKE_SWAY_SPEED: 1.7,
+  AWAKE_SWAY_ROTATION: 0.035,
+  AWAKE_BOB_AMPLITUDE: 3,
   CLICK_PURR_DURATION: 3.5
 } as const;
 
@@ -712,9 +719,18 @@ export const CHAR_ANIM_CONFIG = {
   CUSTOMER_HEIGHT: 225,
   CUSTOMER_SEATED_WIDTH: 68,
   CUSTOMER_SEATED_HEIGHT: 164,
+  CONSUME_CYCLE_SPEED: 3.2,
+  CONSUME_ACTION_THRESHOLD: -0.15,
+  CONSUME_BOB_AMPLITUDE: 1.8,
+  CONSUME_TILT_AMPLITUDE: 0.018,
   CUSTOMER_TINT_SOFTEN: 0.82,
   SHADOW_WIDTH: 24,
   SHADOW_HEIGHT: 7
+} as const;
+
+export const BARISTA_UI_CONFIG = {
+  STEP_THRESHOLDS: [0.2, 0.5, 0.82, 1] as const,
+  COMPLETE_HOLD_MS: 900
 } as const;
 
 export const CUSTOMER_CONFIG = {
@@ -723,6 +739,7 @@ export const CUSTOMER_CONFIG = {
   MAX_ACTIVE_CUSTOMERS: 8,
   PATIENCE_SECONDS: 90,
   EAT_DURATION_SECONDS: 6,
+  QUEUE_BUBBLE_DURATION_SECONDS: 2.5,
   WALK_SPEED: 180,
   SPAWN_POS: { x: 150, y: 625 },
   EXIT_POS: { x: 128, y: 650 }
@@ -829,6 +846,19 @@ export const MAIN_2P5D_TABLE_SEATS: readonly TableSeatDef[] = [
   { id: 'table_3_d', tableId: 'table_3', name: '右侧三号桌 D', seatPos: { x: 1125, y: 610 }, interactPoint: { x: 900, y: 675 }, pose: 'sitting', renderDepthOffset: -18 }
 ] as const;
 
+/** 满座时的吧台前等候队列，按数组顺序入列。 */
+export const CUSTOMER_QUEUE_SPOTS: readonly TableSeatDef[] = [
+  { id: 'main_queue_1', tableId: 'waiting_queue', name: '吧台队列一位', seatPos: { x: 1030, y: 520 }, interactPoint: { x: 1030, y: 520 } },
+  { id: 'main_queue_2', tableId: 'waiting_queue', name: '吧台队列二位', seatPos: { x: 1085, y: 550 }, interactPoint: { x: 1085, y: 550 } },
+  { id: 'main_queue_3', tableId: 'waiting_queue', name: '吧台队列三位', seatPos: { x: 1140, y: 580 }, interactPoint: { x: 1140, y: 580 } }
+] as const;
+
+export const SEASIDE_QUEUE_SPOTS: readonly TableSeatDef[] = [
+  { id: 'sea_queue_1', tableId: 'waiting_queue', name: '海风吧台队列一位', seatPos: { x: 820, y: 545 }, interactPoint: { x: 820, y: 545 } },
+  { id: 'sea_queue_2', tableId: 'waiting_queue', name: '海风吧台队列二位', seatPos: { x: 770, y: 585 }, interactPoint: { x: 770, y: 585 } },
+  { id: 'sea_queue_3', tableId: 'waiting_queue', name: '海风吧台队列三位', seatPos: { x: 720, y: 625 }, interactPoint: { x: 720, y: 625 } }
+] as const;
+
 export const FURNITURE_EXPANSION_CONFIG = {
   table: [
     { level: 0, name: '留白空间', cost: 0, seats: 0, asset: null, operationsImpact: '暂不接待顾客，保留宽敞动线。' },
@@ -863,6 +893,7 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
     navWaypoints: MAIN_2P5D_NAV_WAYPOINTS,
     navEdges: MAIN_2P5D_NAV_EDGES,
     tableSeats: MAIN_2P5D_TABLE_SEATS,
+    queueSpots: CUSTOMER_QUEUE_SPOTS,
     playerStart: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
     customerSpawn: CUSTOMER_CONFIG.SPAWN_POS,
     customerExit: CUSTOMER_CONFIG.EXIT_POS,
@@ -878,6 +909,7 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
     navWaypoints: SEASIDE_NAV_WAYPOINTS,
     navEdges: SEASIDE_NAV_EDGES,
     tableSeats: SEASIDE_TABLE_SEATS,
+    queueSpots: SEASIDE_QUEUE_SPOTS,
     playerStart: { x: 680, y: 680 },
     customerSpawn: { x: 680, y: 730 },
     customerExit: { x: 680, y: 730 },

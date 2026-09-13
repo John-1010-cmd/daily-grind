@@ -1,5 +1,6 @@
 import {
   CUSTOMER_CONFIG,
+  CUSTOMER_QUEUE_SPOTS,
   Point,
   RECIPE_DEFS,
   RecipeDef,
@@ -12,6 +13,7 @@ import { NavGraph, distance } from '../scene/nav';
 
 export type CustomerState =
   | 'ENTERING'          // 进店走向座位
+  | 'WAITING_FOR_SEAT'  // 满座时在吧台前安静排队
   | 'SEATED_CHOOSING'   // 坐下看菜单选品
   | 'WAITING_FOR_ORDER' // 选好等待接单
   | 'WAITING_FOR_DRINK' // 已接单，等待制作上菜
@@ -74,6 +76,7 @@ export interface RegularHooks {
 
 export interface CustomerSceneOptions {
   tableSeats: readonly TableSeatDef[];
+  queueSpots: readonly TableSeatDef[];
   spawnPos: Point;
   exitPos: Point;
 }
@@ -96,6 +99,7 @@ export class CustomerManager {
     orderStateMachine: OrderStateMachine,
     sceneOptions: CustomerSceneOptions = {
       tableSeats: TABLE_SEATS,
+      queueSpots: CUSTOMER_QUEUE_SPOTS,
       spawnPos: CUSTOMER_CONFIG.SPAWN_POS,
       exitPos: CUSTOMER_CONFIG.EXIT_POS
     }
@@ -134,6 +138,32 @@ export class CustomerManager {
     return occupied;
   }
 
+  private getOccupiedQueueSpotIds(): Set<string> {
+    return new Set(
+      this.customers
+        .filter((customer) => customer.state !== 'LEFT' && customer.seat.tableId === 'waiting_queue')
+        .map((customer) => customer.seat.id)
+    );
+  }
+
+  private promoteQueueToSeats(): void {
+    const occupiedSeats = this.getOccupiedSeatIds();
+    const freeSeats = this.sceneOptions.tableSeats.filter((seat) => !occupiedSeats.has(seat.id));
+    if (freeSeats.length === 0) return;
+
+    const waiting = this.customers.filter(
+      (customer) => customer.state === 'WAITING_FOR_SEAT' && customer.walkPath.length === 0
+    );
+    for (const customer of waiting) {
+      const seat = freeSeats.shift();
+      if (!seat) break;
+      customer.seat = seat;
+      customer.state = 'ENTERING';
+      customer.walkPath = this.navGraph.route(customer.pos, seat.seatPos);
+      this.setBubble(customer, '轮到我啦，去找个舒服的位置坐下~', CUSTOMER_CONFIG.QUEUE_BUBBLE_DURATION_SECONDS);
+    }
+  }
+
   public setSceneOptions(sceneOptions: CustomerSceneOptions): void {
     this.sceneOptions = sceneOptions;
   }
@@ -148,11 +178,14 @@ export class CustomerManager {
 
     const occupiedSeats = this.getOccupiedSeatIds();
     const availableSeats = this.sceneOptions.tableSeats.filter((s) => !occupiedSeats.has(s.id));
-    if (availableSeats.length === 0) {
-      return null;
-    }
-
-    const chosenSeat = availableSeats[Math.floor(Math.random() * availableSeats.length)];
+    const queueSpot = this.sceneOptions.queueSpots.find(
+      (spot) => !this.getOccupiedQueueSpotIds().has(spot.id)
+    );
+    const chosenSeat = availableSeats.length > 0
+      ? availableSeats[Math.floor(Math.random() * availableSeats.length)]
+      : queueSpot;
+    if (!chosenSeat) return null;
+    const waitingForSeat = chosenSeat.tableId === 'waiting_queue';
 
     // M3：常客优先生成（不与店内现有常客重复）
     let regularId: string | undefined;
@@ -180,7 +213,7 @@ export class CustomerManager {
       id: `cust_${Date.now()}_${this.nextCustomerId++}`,
       name,
       seat: chosenSeat,
-      state: 'ENTERING',
+      state: waitingForSeat ? 'WAITING_FOR_SEAT' : 'ENTERING',
       pos: spawnPos,
       facing: 'right',
       walkPath,
@@ -291,7 +324,10 @@ export class CustomerManager {
   }
 
   public update(deltaSeconds: number, unlockedRecipeIds: readonly string[]): void {
-    // 1. Spawning timer
+    // 1. 空位先交给已经排队的顾客，再接纳新客。
+    this.promoteQueueToSeats();
+
+    // 2. Spawning timer
     this.spawnTimer -= deltaSeconds;
     if (this.spawnTimer <= 0) {
       this.spawnCustomer();
@@ -301,7 +337,7 @@ export class CustomerManager {
           (CUSTOMER_CONFIG.SPAWN_INTERVAL_MAX - CUSTOMER_CONFIG.SPAWN_INTERVAL_MIN);
     }
 
-    // 2. Update each customer
+    // 3. Update each customer
     for (const c of this.customers) {
       if (c.bubbleDuration > 0) {
         c.bubbleDuration -= deltaSeconds;
@@ -311,6 +347,15 @@ export class CustomerManager {
       }
 
       switch (c.state) {
+        case 'WAITING_FOR_SEAT': {
+          if (c.walkPath.length > 0) {
+            this.stepMovement(c, deltaSeconds, () => {
+              this.setBubble(c, '这里闻得到咖啡香，我慢慢排一会儿~', CUSTOMER_CONFIG.QUEUE_BUBBLE_DURATION_SECONDS);
+            });
+          }
+          break;
+        }
+
         case 'ENTERING': {
           this.stepMovement(c, deltaSeconds, () => {
             c.pos = { ...c.seat.seatPos };

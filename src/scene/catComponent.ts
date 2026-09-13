@@ -96,11 +96,13 @@ export class CatComponent {
     this.breathPhase += deltaSeconds * CAT_CONFIG.BREATH_SPEED;
 
     // Gentle breathing scale
-    const breath = Math.sin(this.breathPhase) * 0.025;
-    this.sprite.scale.set(1 + breath, 1 - breath * 0.5);
+    const breath = Math.sin(this.breathPhase) * CAT_CONFIG.BREATH_AMPLITUDE;
+    this.sprite.scale.set(1 + breath, 1 - breath * CAT_CONFIG.BREATH_WIDTH_FACTOR);
 
     // Handle temporary petting blink state
     if (this.blinkTimer > 0) {
+      this.container.rotation = 0;
+      this.sprite.y = 0;
       this.blinkTimer -= deltaSeconds;
       if (this.blinkTimer <= 0) {
         this.setPose('curled');
@@ -108,10 +110,19 @@ export class CatComponent {
       return;
     }
 
+    if (this.currentPose === 'stretch') {
+      const awakePhase = this.breathPhase * CAT_CONFIG.AWAKE_SWAY_SPEED;
+      this.container.rotation = Math.sin(awakePhase) * CAT_CONFIG.AWAKE_SWAY_ROTATION;
+      this.sprite.y = -Math.abs(Math.sin(awakePhase)) * CAT_CONFIG.AWAKE_BOB_AMPLITUDE;
+    } else {
+      this.container.rotation = 0;
+      this.sprite.y = 0;
+    }
+
     // Pose switching timer
     this.poseTimer -= deltaSeconds;
     if (this.poseTimer <= 0) {
-      this.poseTimer = CAT_CONFIG.POSE_CHANGE_INTERVAL + Math.random() * 8;
+      this.poseTimer = CAT_CONFIG.POSE_CHANGE_INTERVAL + Math.random() * CAT_CONFIG.POSE_INTERVAL_VARIANCE;
       const nextPose: CatPose = this.currentPose === 'curled' ? 'stretch' : 'curled';
       this.setPose(nextPose);
     }

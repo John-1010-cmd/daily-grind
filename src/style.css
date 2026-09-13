@@ -332,6 +332,107 @@ input[type='range'] {
   line-height: 1.6;
 }
 
+/* 玩家亲手制作：店员制作仍只使用场景内 brewing-widget。 */
+.barista-backdrop { background: rgba(39, 25, 14, 0.58); }
+.barista-panel {
+  width: 760px;
+  overflow: hidden;
+  padding: 22px 28px 26px;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 225, 158, 0.34), transparent 30%),
+    #fbf2df;
+}
+.barista-close { position: absolute; top: 16px; right: 18px; z-index: 2; }
+.barista-heading { text-align: center; }
+.barista-heading h2 { margin: 2px 0 4px; font-size: 27px; color: #573519; }
+.barista-heading p { margin: 0; color: #866342; }
+.barista-kicker {
+  color: #b86d42;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+.barista-workbench {
+  position: relative;
+  width: 420px;
+  height: 208px;
+  margin: 10px auto 4px;
+  border-bottom: 15px solid #9b6035;
+}
+.barista-owner {
+  position: absolute;
+  z-index: 2;
+  left: 78px;
+  bottom: 0;
+  width: 66px;
+  transform-origin: 50% 88%;
+}
+.barista-machine {
+  position: absolute;
+  right: 54px;
+  bottom: 0;
+  width: 205px;
+  height: 132px;
+  border: 4px solid #70523d;
+  border-radius: 24px 24px 9px 9px;
+  background: linear-gradient(145deg, #f0e7d5, #a9a89b);
+  box-shadow: inset 0 -12px 0 rgba(80, 62, 45, 0.14), 0 8px 12px rgba(69, 42, 22, 0.18);
+}
+.barista-dial {
+  position: absolute; left: 76px; top: 18px; width: 48px; height: 48px;
+  border: 5px solid #6d5140; border-radius: 50%; background: #fffaf0;
+}
+.barista-dial span {
+  position: absolute; left: 21px; top: 5px; width: 4px; height: 17px;
+  border-radius: 4px; background: #d37a4f; transform-origin: 50% 19px;
+}
+.barista-portafilter {
+  position: absolute; left: 54px; top: 75px; width: 65px; height: 12px;
+  border-radius: 7px; background: #654a3a; transform-origin: right center;
+}
+.barista-cup { position: absolute; left: 87px; bottom: 5px; font-size: 35px; }
+.barista-steam {
+  position: absolute; z-index: 3; bottom: 40px; width: 10px; height: 45px;
+  border-left: 3px solid rgba(255,255,255,.86); border-radius: 50%; opacity: 0;
+}
+.steam-one { left: 92px; }
+.steam-two { left: 111px; height: 36px; }
+.barista-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.barista-steps > div {
+  position: relative;
+  min-height: 64px;
+  padding: 10px 8px 8px 40px;
+  border: 1px solid #dfc39e;
+  border-radius: 13px;
+  background: rgba(255,255,255,.5);
+  opacity: .62;
+  transition: transform .2s ease, opacity .2s ease, background .2s ease;
+}
+.barista-steps span {
+  position: absolute; left: 10px; top: 13px; width: 23px; height: 23px;
+  border-radius: 50%; display: grid; place-items: center; color: white; background: #b38a62;
+}
+.barista-steps b, .barista-steps small { display: block; }
+.barista-steps b { color: #5b3b21; }
+.barista-steps small { color: #917154; font-size: 11px; line-height: 1.35; }
+.barista-steps > .is-active { opacity: 1; transform: translateY(-3px); background: #fff8e9; }
+.barista-steps > .is-done { opacity: 1; background: #eef3df; }
+.barista-steps > .is-done span { background: #6f925f; font-size: 0; }
+.barista-steps > .is-done span::after { content: '✓'; font-size: 14px; }
+.barista-progress { height: 10px; margin: 16px 0 14px; overflow: hidden; border-radius: 9px; background: #ead8bd; }
+.barista-progress > div { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8ba36d, #d58a55); transition: width .18s linear; }
+.barista-start { display: block; min-width: 230px; margin: 0 auto; }
+.barista-panel.is-working .barista-owner { animation: barista-tamp 1.25s ease-in-out infinite; }
+.barista-panel.is-working .barista-portafilter { animation: barista-handle 1.6s ease-in-out infinite; }
+.barista-panel.is-working .barista-dial span { animation: barista-pressure 1.8s ease-in-out infinite; }
+.barista-panel.is-working .barista-steam { animation: barista-steam 1.5s ease-out infinite; }
+.barista-panel.is-working .steam-two { animation-delay: .45s; }
+.barista-panel.is-complete { box-shadow: 0 16px 46px rgba(255, 206, 113, .5); }
+@keyframes barista-tamp { 0%,100% { transform: rotate(0); } 50% { transform: translate(7px, 3px) rotate(2deg); } }
+@keyframes barista-handle { 0%,100% { transform: rotate(0); } 42% { transform: rotate(-9deg); } }
+@keyframes barista-pressure { 0%,100% { transform: rotate(-35deg); } 50% { transform: rotate(38deg); } }
+@keyframes barista-steam { 0% { opacity: 0; transform: translateY(5px) scale(.8); } 25% { opacity: .75; } 100% { opacity: 0; transform: translate(8px,-35px) scale(1.25); } }
+
 .setting-row {
   margin-bottom: 18px;
 }
