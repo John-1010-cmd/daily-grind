@@ -132,7 +132,23 @@ export class Hud {
 
     // 2. Top Right: Buttons row (配方 / 进货 / 装修 / 图鉴 / 分店地图 / 梦想基金 / 设置)
     const hudRight = document.createElement('div');
-    hudRight.className = 'hud-right';
+    hudRight.className = 'hud-right interactive';
+
+    const bookmarkToggle = document.createElement('button');
+    bookmarkToggle.className = 'hud-bookmark-toggle';
+    bookmarkToggle.type = 'button';
+    bookmarkToggle.title = '收拢功能书签';
+    bookmarkToggle.setAttribute('aria-expanded', 'true');
+    bookmarkToggle.innerHTML = '<span>功能书签</span><b>›</b>';
+    bookmarkToggle.addEventListener('pointerdown', (e) => e.stopPropagation());
+    bookmarkToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = hudRight.classList.toggle('collapsed');
+      bookmarkToggle.setAttribute('aria-expanded', String(!collapsed));
+      bookmarkToggle.title = collapsed ? '展开功能书签' : '收拢功能书签';
+      bookmarkToggle.querySelector('b')!.textContent = collapsed ? '‹' : '›';
+    });
+    hudRight.appendChild(bookmarkToggle);
 
     for (const btnDef of UI_CONFIG.TOP_NAV_BUTTONS) {
       const flags = btnDef as { enabledInM3?: boolean; enabledInM5?: boolean };

@@ -11,7 +11,8 @@ export type TransactionType =
   | 'achievement_reward'
   | 'cat_gift'
   | 'branch_unlock'
-  | 'world_idle_income';
+  | 'world_idle_income'
+  | 'furniture_purchase';
 
 export interface TransactionDetail {
   id: string;
@@ -150,6 +151,15 @@ export class EconomyLedger {
       cost,
       -cost,
       `置办装修【${itemName}】`
+    );
+  }
+
+  public settleFurniturePurchase(itemName: string, cost: number): TransactionDetail {
+    return this.createTx(
+      'furniture_purchase',
+      cost,
+      -cost,
+      `扩建家具【${itemName}】`
     );
   }
 

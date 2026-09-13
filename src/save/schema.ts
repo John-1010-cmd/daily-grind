@@ -1,5 +1,6 @@
 import {
   AUDIO_CONFIG,
+  FURNITURE_EXPANSION_CONFIG,
   INITIAL_INVENTORY,
   PLAYER_CONFIG,
   SAVE_CONFIG,
@@ -33,6 +34,13 @@ export interface ShopSaveState {
   player: { x: number; y: number };
   lastSettledAt: number;
   simulation: ShopSimulationState;
+  furniture: FurnitureSaveState;
+}
+
+export interface FurnitureSaveState {
+  tableLevels: Record<string, number>;
+  counterLevel: number;
+  ownedUpgrades: string[];
 }
 
 export interface WorldSaveState {
@@ -150,6 +158,11 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
         unlocked: true,
         player: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
         lastSettledAt: 0,
+        furniture: {
+          tableLevels: { ...FURNITURE_EXPANSION_CONFIG.defaultTableLevels },
+          counterLevel: FURNITURE_EXPANSION_CONFIG.defaultCounterLevel,
+          ownedUpgrades: Object.keys(FURNITURE_EXPANSION_CONFIG.defaultTableLevels).map((id) => `table:${id}:1`)
+        },
         simulation: {
           shopId: 'main',
           rngState: SHOP_SIMULATION_CONFIG.MAIN_RNG_SEED,
@@ -165,6 +178,11 @@ export const DEFAULT_SAVE_STATE: SaveStateV2 = {
         unlocked: false,
         player: { x: 680, y: 680 },
         lastSettledAt: 0,
+        furniture: {
+          tableLevels: { table_1: 1, table_2: 1, table_3: 1, table_4: 1 },
+          counterLevel: FURNITURE_EXPANSION_CONFIG.defaultCounterLevel,
+          ownedUpgrades: ['table:table_1:1', 'table:table_2:1', 'table:table_3:1', 'table:table_4:1']
+        },
         simulation: {
           shopId: 'seaside',
           rngState: SHOP_SIMULATION_CONFIG.SEASIDE_RNG_SEED,
@@ -597,6 +615,22 @@ export function validateAndSanitizeSave(raw: unknown): ValidationResult {
           if (typeof player.y === 'number' && Number.isFinite(player.y)) target.player.y = player.y;
         }
         target.simulation = sanitizeShopSimulation(shop.simulation, target.simulation);
+        if (shop.furniture && typeof shop.furniture === 'object' && !Array.isArray(shop.furniture)) {
+          const furniture = shop.furniture as Record<string, unknown>;
+          if (furniture.tableLevels && typeof furniture.tableLevels === 'object' && !Array.isArray(furniture.tableLevels)) {
+            for (const [key, value] of Object.entries(furniture.tableLevels as Record<string, unknown>)) {
+              if (typeof value === 'number' && Number.isFinite(value)) {
+                target.furniture.tableLevels[key] = Math.max(0, Math.min(2, Math.floor(value)));
+              }
+            }
+          }
+          if (typeof furniture.counterLevel === 'number' && Number.isFinite(furniture.counterLevel)) {
+            target.furniture.counterLevel = Math.max(0, Math.min(3, Math.floor(furniture.counterLevel)));
+          }
+          if (Array.isArray(furniture.ownedUpgrades)) {
+            target.furniture.ownedUpgrades = furniture.ownedUpgrades.filter((value): value is string => typeof value === 'string');
+          }
+        }
         if (shopId === 'seaside' && shop.decor && typeof shop.decor === 'object' && !Array.isArray(shop.decor)) {
           const decor = shop.decor as Record<string, unknown>;
           const targetDecor = m3.world.shops.seaside.decor;

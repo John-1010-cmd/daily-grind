@@ -124,14 +124,18 @@ export class CustomerManager {
     return this.customers.find((c) => c.id === id);
   }
 
-  private getOccupiedTableIds(): Set<string> {
+  private getOccupiedSeatIds(): Set<string> {
     const occupied = new Set<string>();
     for (const c of this.customers) {
       if (c.state !== 'LEFT' && c.state !== 'LEAVING') {
-        occupied.add(c.seat.tableId);
+        occupied.add(c.seat.id);
       }
     }
     return occupied;
+  }
+
+  public setSceneOptions(sceneOptions: CustomerSceneOptions): void {
+    this.sceneOptions = sceneOptions;
   }
 
   /**
@@ -142,8 +146,8 @@ export class CustomerManager {
       return null;
     }
 
-    const occupiedTables = this.getOccupiedTableIds();
-    const availableSeats = this.sceneOptions.tableSeats.filter((s) => !occupiedTables.has(s.tableId));
+    const occupiedSeats = this.getOccupiedSeatIds();
+    const availableSeats = this.sceneOptions.tableSeats.filter((s) => !occupiedSeats.has(s.id));
     if (availableSeats.length === 0) {
       return null;
     }

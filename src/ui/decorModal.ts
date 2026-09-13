@@ -1,7 +1,8 @@
-import { CAT_GIFT_CONFIG } from '../config';
+import { CAT_GIFT_CONFIG, FURNITURE_EXPANSION_CONFIG, SHOP_SCENES, ShopId } from '../config';
 import { DecorManager } from '../decor';
 import { EconomyLedger } from '../economy';
 import { DreamFundManager, FundMetrics } from '../fund';
+import { FurnitureManager } from '../furniture';
 import { SaveManager } from '../save';
 import { ToastManager } from './toast';
 
@@ -21,6 +22,7 @@ export class DecorModal {
   private modalEl: HTMLElement | null = null;
   /** 款式/主题变更后通知场景重绘覆盖层（main.ts 注入） */
   public onDecorChanged: (() => void) | null = null;
+  public onFurnitureChanged: (() => void) | null = null;
 
   constructor(
     root: HTMLElement,
@@ -29,7 +31,9 @@ export class DecorModal {
     decorManager: DecorManager,
     fundManager: DreamFundManager,
     getFundMetrics: () => FundMetrics,
-    toast: ToastManager
+    toast: ToastManager,
+    private readonly furnitureManager: FurnitureManager,
+    private readonly getActiveShopId: () => ShopId
   ) {
     this.root = root;
     this.saveManager = saveManager;
@@ -80,6 +84,30 @@ export class DecorModal {
     const metrics = this.getFundMetrics();
     const cap = this.fundManager.getCap(metrics);
     const progress = this.fundManager.getOverallProgress();
+    const activeShopId = this.getActiveShopId();
+    const furnitureState = this.saveManager.getState().world.shops[activeShopId].furniture;
+    const tableSlotIds = [...new Set(SHOP_SCENES[activeShopId].tableSeats.map((seat) => seat.tableId))];
+    const tableExpansionHtml = tableSlotIds.map((slotId, index) => {
+      const currentLevel = furnitureState.tableLevels[slotId] ?? 0;
+      const ownedLevel = this.furnitureManager.getOwnedTableLevel(activeShopId, slotId);
+      const current = FURNITURE_EXPANSION_CONFIG.table[currentLevel];
+      const next = FURNITURE_EXPANSION_CONFIG.table[ownedLevel + 1];
+      const canStore = currentLevel > 0;
+      const canPlace = currentLevel === 0 && ownedLevel > 0;
+      return `
+        <div class="furniture-upgrade-card">
+          <div><strong>餐桌槽位 ${index + 1}</strong><small>${current.name} · ${current.operationsImpact}</small></div>
+          <div class="furniture-actions">
+            ${next ? `<button class="btn-action" data-table-upgrade="${slotId}">预览并置办 ${next.name} · 🪙${next.cost}</button>` : '<span class="furniture-max">已完整升级</span>'}
+            ${canStore ? `<button class="btn-action btn-muted" data-table-level="${slotId}" data-level="0">免费收起</button>` : ''}
+            ${canPlace ? `<button class="btn-action" data-table-level="${slotId}" data-level="${ownedLevel}">免费摆回</button>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+    const counterLevel = furnitureState.counterLevel;
+    const counterCurrent = FURNITURE_EXPANSION_CONFIG.counter[counterLevel];
+    const counterOwned = this.furnitureManager.getOwnedCounterLevel(activeShopId);
+    const counterNext = FURNITURE_EXPANSION_CONFIG.counter[counterOwned + 1];
 
     // 还款罐小进度条（多笔时合计）
     const fundBarHtml = `
@@ -150,6 +178,17 @@ export class DecorModal {
             <span style="font-size:12px;color:#8c6239;">点击店里的家具也可直接轮换已拥有款式</span>
           </div>
           <div class="fund-tier-note">碎片仅来自摸猫的小礼物，可提前换到同样能用金币购买的普通款式；没有限定款或连续签到。</div>
+          <div class="decor-slot-card furniture-expansion-section">
+            <div class="decor-slot-head">🪚 经营扩建 · ${SHOP_SCENES[activeShopId].name}</div>
+            <div class="fund-tier-note">固定槽位布置，家具一经置办永久拥有；移动、收起和摆回都不收费，也没有施工等待。</div>
+            ${tableExpansionHtml}
+            <div class="furniture-upgrade-card">
+              <div><strong>吧台工作链</strong><small>${counterCurrent.name} · ${counterCurrent.operationsImpact}</small></div>
+              <div class="furniture-actions">
+                ${counterNext ? `<button class="btn-action" data-counter-upgrade>预览并置办 ${counterNext.name} · 🪙${counterNext.cost}</button>` : '<span class="furniture-max">已完整升级</span>'}
+              </div>
+            </div>
+          </div>
           <div class="recipe-scroll-area" style="max-height: 300px; overflow-y: auto;">
             ${slotsHtml}
           </div>
@@ -221,6 +260,37 @@ export class DecorModal {
         if (result.ok) this.onDecorChanged?.();
         this.render();
       });
+    });
+
+    backdrop.querySelectorAll('[data-table-upgrade]').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        const slotId = (e.currentTarget as HTMLElement).getAttribute('data-table-upgrade')!;
+        const result = this.furnitureManager.upgradeTable(activeShopId, slotId);
+        this.toast.show(result.ok ? FURNITURE_EXPANSION_CONFIG.purchaseSuccessCopy : (result.reason ?? '暂时无法置办'));
+        if (result.ok) this.onFurnitureChanged?.();
+        this.render();
+      });
+    });
+
+    backdrop.querySelectorAll('[data-table-level]').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        const el = e.currentTarget as HTMLElement;
+        const result = this.furnitureManager.setTableLevel(
+          activeShopId,
+          el.getAttribute('data-table-level')!,
+          Number(el.getAttribute('data-level'))
+        );
+        this.toast.show(result.ok ? '已经替你免费调整好位置啦。' : (result.reason ?? '暂时无法调整'));
+        if (result.ok) this.onFurnitureChanged?.();
+        this.render();
+      });
+    });
+
+    backdrop.querySelector('[data-counter-upgrade]')?.addEventListener('click', () => {
+      const result = this.furnitureManager.upgradeCounter(activeShopId);
+      this.toast.show(result.ok ? FURNITURE_EXPANSION_CONFIG.purchaseSuccessCopy : (result.reason ?? '暂时无法扩建'));
+      if (result.ok) this.onFurnitureChanged?.();
+      this.render();
     });
   }
 }

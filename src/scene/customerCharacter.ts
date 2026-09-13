@@ -1,13 +1,6 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
-import armLUrl from '../assets/characters/passenger/passenger-arm-l.png';
-import armRUrl from '../assets/characters/passenger/passenger-arm-r.png';
-import bodyUrl from '../assets/characters/passenger/passenger-body.png';
-import headUrl from '../assets/characters/passenger/passenger-head.png';
-import legLUrl from '../assets/characters/passenger/passenger-leg-l.png';
-import legRUrl from '../assets/characters/passenger/passenger-leg-r.png';
+import customerUrl from '../assets/scene/customer-1x4.webp';
 import { CHAR_ANIM_CONFIG } from '../config';
-
-const PART_SCALE = 0.55;
 
 /** 将颜色向白色混合，避免深色 tint 把浅色衣服压得过暗 */
 export function softenTint(color: number, amount: number): number {
@@ -25,12 +18,9 @@ export function softenTint(color: number, amount: number): number {
  */
 export class CustomerCharacter {
   public readonly container: Container;
-  private bodySprite: Sprite;
-  private headSprite: Sprite;
-  private armLSprite: Sprite;
-  private armRSprite: Sprite;
-  private legLSprite: Sprite;
-  private legRSprite: Sprite;
+  private characterSprite: Sprite;
+  private readonly baseScaleX: number;
+  private readonly baseScaleY: number;
 
   private walkPhase = 0;
   private idlePhase = 0;
@@ -40,52 +30,18 @@ export class CustomerCharacter {
     this.container.label = 'CustomerCharacter';
 
     const shadow = new Graphics();
-    shadow.ellipse(0, 24, 16, 5);
+    shadow.ellipse(0, 2, CHAR_ANIM_CONFIG.SHADOW_WIDTH, CHAR_ANIM_CONFIG.SHADOW_HEIGHT);
     shadow.fill({ color: 0x000000, alpha: 0.22 });
     this.container.addChild(shadow);
 
-    const limbTint = softenTint(tint, 0.3);
-
-    this.legLSprite = new Sprite(Texture.from(legLUrl));
-    this.legLSprite.anchor.set(0.5, 0.08);
-    this.legLSprite.scale.set(PART_SCALE);
-    this.legLSprite.position.set(-5, 2);
-    this.legLSprite.tint = limbTint;
-    this.container.addChild(this.legLSprite);
-
-    this.legRSprite = new Sprite(Texture.from(legRUrl));
-    this.legRSprite.anchor.set(0.5, 0.08);
-    this.legRSprite.scale.set(PART_SCALE);
-    this.legRSprite.position.set(5, 2);
-    this.legRSprite.tint = limbTint;
-    this.container.addChild(this.legRSprite);
-
-    this.armLSprite = new Sprite(Texture.from(armLUrl));
-    this.armLSprite.anchor.set(0.5, 0.12);
-    this.armLSprite.scale.set(PART_SCALE);
-    this.armLSprite.position.set(-14, -10);
-    this.armLSprite.tint = limbTint;
-    this.container.addChild(this.armLSprite);
-
-    this.bodySprite = new Sprite(Texture.from(bodyUrl));
-    this.bodySprite.anchor.set(0.5, 0.5);
-    this.bodySprite.scale.set(PART_SCALE);
-    this.bodySprite.position.set(0, -3);
-    this.bodySprite.tint = tint;
-    this.container.addChild(this.bodySprite);
-
-    this.headSprite = new Sprite(Texture.from(headUrl));
-    this.headSprite.anchor.set(0.5, 0.95);
-    this.headSprite.scale.set(PART_SCALE);
-    this.headSprite.position.set(0, -16);
-    this.container.addChild(this.headSprite);
-
-    this.armRSprite = new Sprite(Texture.from(armRUrl));
-    this.armRSprite.anchor.set(0.5, 0.12);
-    this.armRSprite.scale.set(PART_SCALE);
-    this.armRSprite.position.set(14, -10);
-    this.armRSprite.tint = limbTint;
-    this.container.addChild(this.armRSprite);
+    this.characterSprite = new Sprite(Texture.from(customerUrl));
+    this.characterSprite.anchor.set(0.5, 1);
+    this.characterSprite.width = CHAR_ANIM_CONFIG.CUSTOMER_WIDTH;
+    this.characterSprite.height = CHAR_ANIM_CONFIG.CUSTOMER_HEIGHT;
+    this.baseScaleX = this.characterSprite.scale.x;
+    this.baseScaleY = this.characterSprite.scale.y;
+    this.characterSprite.tint = softenTint(tint, CHAR_ANIM_CONFIG.CUSTOMER_TINT_SOFTEN);
+    this.container.addChild(this.characterSprite);
   }
 
   public update(deltaSeconds: number, isMoving: boolean, facing: 'left' | 'right'): void {
@@ -95,37 +51,16 @@ export class CustomerCharacter {
       this.walkPhase += deltaSeconds * CHAR_ANIM_CONFIG.WALK_CYCLE_SPEED;
 
       const bounce = Math.abs(Math.sin(this.walkPhase)) * CHAR_ANIM_CONFIG.BODY_BOUNCE_AMPLITUDE;
-      this.bodySprite.y = -3 - bounce;
-
-      const tilt = Math.sin(this.walkPhase) * CHAR_ANIM_CONFIG.BODY_TILT_AMPLITUDE;
-      this.bodySprite.rotation = tilt;
-
-      this.headSprite.y = -16 - bounce * 0.6;
-      this.headSprite.rotation = -tilt * 0.5;
-
-      const legSwing = Math.sin(this.walkPhase) * CHAR_ANIM_CONFIG.LIMB_SWING_AMPLITUDE;
-      this.legLSprite.rotation = legSwing;
-      this.legRSprite.rotation = -legSwing;
-
-      const armSwing = Math.sin(this.walkPhase) * (CHAR_ANIM_CONFIG.LIMB_SWING_AMPLITUDE * 0.85);
-      this.armLSprite.rotation = -armSwing;
-      this.armRSprite.rotation = armSwing;
+      this.characterSprite.y = -bounce;
+      this.characterSprite.rotation = Math.sin(this.walkPhase) * CHAR_ANIM_CONFIG.BODY_TILT_AMPLITUDE;
     } else {
       this.idlePhase += deltaSeconds * CHAR_ANIM_CONFIG.IDLE_BREATH_SPEED;
 
-      this.legLSprite.rotation *= 0.85;
-      this.legRSprite.rotation *= 0.85;
-      this.armLSprite.rotation *= 0.85;
-      this.armRSprite.rotation *= 0.85;
-
       const breath = Math.sin(this.idlePhase) * CHAR_ANIM_CONFIG.IDLE_BREATH_SCALE;
-      this.bodySprite.scale.y = PART_SCALE * (1 + breath);
-      this.bodySprite.scale.x = PART_SCALE * (1 - breath * 0.5);
-      this.bodySprite.y = -3;
-      this.bodySprite.rotation = 0;
-
-      this.headSprite.y = -16 + Math.sin(this.idlePhase) * 0.5;
-      this.headSprite.rotation = Math.sin(this.idlePhase * 0.5) * 0.02;
+      this.characterSprite.scale.y = this.baseScaleY * (1 + breath);
+      this.characterSprite.scale.x = this.baseScaleX * (1 - breath * CHAR_ANIM_CONFIG.BREATH_WIDTH_FACTOR);
+      this.characterSprite.y = 0;
+      this.characterSprite.rotation = Math.sin(this.idlePhase * CHAR_ANIM_CONFIG.IDLE_TILT_SPEED_FACTOR) * CHAR_ANIM_CONFIG.IDLE_TILT_AMPLITUDE;
     }
   }
 

@@ -29,9 +29,9 @@ describe('M2 美术管线首跑与资产组件测试 (T2.1 - T2.6)', () => {
     expect(['curled', 'stretch']).toContain(cat.getCurrentPose());
   });
 
-  it('2. 店主角色程序补间 (OwnerCharacter)：部件层级与动画状态响应', () => {
+  it('2. 店主角色程序补间 (OwnerCharacter)：1:4 全身精灵与动画状态响应', () => {
     const owner = new OwnerCharacter();
-    expect(owner.container.children.length).toBeGreaterThanOrEqual(6); // shadow + 2 legs + 2 arms + body + head
+    expect(owner.container.children).toHaveLength(2); // shadow + 完整透明角色精灵
 
     // 朝向切换测试
     owner.update(0.1, false, 'right');

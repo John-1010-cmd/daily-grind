@@ -115,10 +115,59 @@ input[type='range'] {
 }
 
 .hud-right {
+  position: absolute;
+  right: 18px;
+  top: 94px;
   display: flex;
+  flex-direction: column;
   gap: 8px;
   align-items: center;
   pointer-events: auto;
+  padding: 12px 10px;
+  border: 1.5px solid #c99a64;
+  border-radius: 20px 6px 6px 20px;
+  background:
+    linear-gradient(rgba(255, 251, 241, 0.92), rgba(246, 231, 207, 0.92)),
+    url('./assets/ui/paper-texture.webp');
+  box-shadow: 0 8px 24px rgba(63, 39, 19, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.hud-right.collapsed {
+  transform: translateX(86px);
+}
+
+.hud-right.collapsed .hud-btn {
+  visibility: hidden;
+}
+
+.hud-bookmark-toggle {
+  position: absolute;
+  left: -38px;
+  top: 12px;
+  width: 40px;
+  min-width: 40px;
+  height: 98px;
+  padding: 8px 5px;
+  border: 1.5px solid #b97945;
+  border-right: 0;
+  border-radius: 14px 0 0 14px;
+  background: #d77b58;
+  color: #fffaf0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  box-shadow: -4px 4px 12px rgba(63, 39, 19, 0.14);
+}
+
+.hud-bookmark-toggle b {
+  writing-mode: horizontal-tb;
+  font-size: 20px;
+  line-height: 1;
+  margin-top: 5px;
 }
 
 .hud-btn {
@@ -138,6 +187,35 @@ input[type='range'] {
   font-weight: 600;
   color: #5c3a1e;
   gap: 2px;
+}
+
+.furniture-upgrade-card {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 4px;
+  border-top: 1px dashed #e0c8a6;
+}
+
+.furniture-upgrade-card small {
+  display: block;
+  margin-top: 3px;
+  color: #84684d;
+}
+
+.furniture-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.furniture-max {
+  color: #5c8a68;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .hud-btn .btn-icon {

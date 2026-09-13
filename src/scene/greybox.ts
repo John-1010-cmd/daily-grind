@@ -8,6 +8,8 @@ import {
 } from 'pixi.js';
 import {
   PLAYER_CONFIG,
+  FURNITURE_EXPANSION_CONFIG,
+  MAIN_2P5D_MODULES,
   Point,
   SCREEN_CONFIG,
   SceneObjectConfig,
@@ -31,7 +33,8 @@ import {
   isPointInWalkable
 } from './nav';
 import { OwnerCharacter } from './ownerCharacter';
-import { SHOP_SCENE_BACKGROUND_URLS } from './shopSceneAssets';
+import { sceneDepthForY } from './depth';
+import { MAIN_SCENE_MODULE_URLS, SHOP_SCENE_BACKGROUND_URLS } from './shopSceneAssets';
 
 export interface GreyboxCallbacks {
   onObjectInteract: (obj: SceneObjectConfig) => void;
@@ -43,11 +46,13 @@ export interface GreyboxCallbacks {
 export class GreyboxScene {
   public readonly container: Container;
   private backgroundLayer: Container;
-  private objectsLayer: Container;
+  private worldLayer: Container;
   private decorLayer: Container;
-  private customersLayer: Container;
-  private playerLayer: Container;
   private debugLayer: Container;
+  private moduleSprites: Sprite[] = [];
+  private decorSprites: Sprite[] = [];
+  private tableLevels: Record<string, number> = { ...FURNITURE_EXPANSION_CONFIG.defaultTableLevels };
+  private counterLevel: number = FURNITURE_EXPANSION_CONFIG.defaultCounterLevel;
 
   private ownerCharacter: OwnerCharacter;
   private catComponent: CatComponent;
@@ -91,17 +96,14 @@ export class GreyboxScene {
     this.container.label = 'GreyboxScene';
 
     this.backgroundLayer = new Container();
-    this.objectsLayer = new Container();
+    this.worldLayer = new Container();
+    this.worldLayer.sortableChildren = true;
     this.decorLayer = new Container();
-    this.customersLayer = new Container();
-    this.playerLayer = new Container();
     this.debugLayer = new Container();
 
     this.container.addChild(this.backgroundLayer);
-    this.container.addChild(this.objectsLayer);
+    this.container.addChild(this.worldLayer);
     this.container.addChild(this.decorLayer);
-    this.container.addChild(this.customersLayer);
-    this.container.addChild(this.playerLayer);
     this.container.addChild(this.debugLayer);
 
     // 1. Finished Watercolor Scene Base (T2.3)
@@ -109,17 +111,19 @@ export class GreyboxScene {
 
     // 2. Finished Cat Component (T2.6)
     this.catComponent = new CatComponent();
-    this.objectsLayer.addChild(this.catComponent.container);
+    this.worldLayer.addChild(this.catComponent.container);
     this.catComponent.container.visible = sceneDefinition.catEnabled;
 
     // 3. Customer Rendering Layer
     this.customersGraphic = new Graphics();
-    this.customersLayer.addChild(this.customersGraphic);
+    this.customersGraphic.zIndex = MAIN_2P5D_MODULES.clickRippleDepth - 1;
+    this.worldLayer.addChild(this.customersGraphic);
 
     // 4. Finished Owner Character with Procedural Tweening (T2.4 & T2.5)
     this.ownerCharacter = new OwnerCharacter();
     this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
-    this.playerLayer.addChild(this.ownerCharacter.container);
+    this.ownerCharacter.container.zIndex = sceneDepthForY(this.playerPos.y);
+    this.worldLayer.addChild(this.ownerCharacter.container);
 
     // Click feedback
     this.clickFeedbackGraphic = new Graphics();
@@ -145,9 +149,10 @@ export class GreyboxScene {
     this.pendingCat = false;
     this.customerSprites.forEach((sprite) => sprite.container.destroy({ children: true }));
     this.customerSprites.clear();
-    this.customersLayer.removeChildren();
+    this.worldLayer.removeChild(this.customersGraphic);
     this.customersGraphic = new Graphics();
-    this.customersLayer.addChild(this.customersGraphic);
+    this.customersGraphic.zIndex = MAIN_2P5D_MODULES.clickRippleDepth - 1;
+    this.worldLayer.addChild(this.customersGraphic);
     this.catComponent.container.visible = sceneDefinition.catEnabled;
     this.buildSceneBackground();
     this.setPlayerPosition(sceneDefinition.playerStart);
@@ -164,7 +169,11 @@ export class GreyboxScene {
    * 选中非默认款式的槽位叠加水彩物件贴图；主题色调罩染在 main.ts 的舞台层处理。
    */
   public refreshDecor(): void {
-    this.decorLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    for (const sprite of this.decorSprites) {
+      this.worldLayer.removeChild(sprite);
+      sprite.destroy();
+    }
+    this.decorSprites = [];
     if (!this.decorManager) return;
 
     for (const slot of this.decorManager.getSlots()) {
@@ -179,7 +188,9 @@ export class GreyboxScene {
       sprite.anchor.set(placement.anchorX ?? 0.5, placement.anchorY ?? 0.5);
       sprite.position.set(placement.x, placement.y);
       sprite.width = placement.width; // 高度按比例自适应
-      this.decorLayer.addChild(sprite);
+      sprite.zIndex = sceneDepthForY(placement.depthY ?? placement.y);
+      this.decorSprites.push(sprite);
+      this.worldLayer.addChild(sprite);
     }
   }
 
@@ -195,6 +206,71 @@ export class GreyboxScene {
     bgSprite.width = SCREEN_CONFIG.DESIGN_WIDTH;
     bgSprite.height = SCREEN_CONFIG.DESIGN_HEIGHT;
     this.backgroundLayer.addChild(bgSprite);
+    this.buildSceneModules();
+  }
+
+  private buildSceneModules(): void {
+    for (const sprite of this.moduleSprites) {
+      this.worldLayer.removeChild(sprite);
+      sprite.destroy();
+    }
+    this.moduleSprites = [];
+    if (this.sceneDefinition.id !== 'main') return;
+
+    for (const placement of MAIN_2P5D_MODULES.static) {
+      const sprite = new Sprite(Texture.from(MAIN_SCENE_MODULE_URLS[placement.asset]));
+      sprite.label = placement.id;
+      sprite.anchor.set(placement.anchorX, placement.anchorY);
+      sprite.position.set(placement.x, placement.y);
+      sprite.width = placement.id === 'counter'
+        ? FURNITURE_EXPANSION_CONFIG.counterVisuals.bodyWidths[this.counterLevel]
+        : placement.id === 'equipment_station'
+          ? FURNITURE_EXPANSION_CONFIG.counterVisuals.equipmentWidths[this.counterLevel]
+          : placement.width;
+      sprite.zIndex = sceneDepthForY(placement.y, placement.depthOffset);
+      this.moduleSprites.push(sprite);
+      this.worldLayer.addChild(sprite);
+    }
+    const extraStation = FURNITURE_EXPANSION_CONFIG.counterVisuals.secondaryStation;
+    if (this.counterLevel >= extraStation.fromLevel) {
+      const sprite = new Sprite(Texture.from(MAIN_SCENE_MODULE_URLS.equipmentStation));
+      sprite.label = 'equipment_station_secondary';
+      sprite.anchor.set(0.5, 1);
+      sprite.position.set(extraStation.x, extraStation.y);
+      sprite.width = extraStation.width;
+      sprite.zIndex = sceneDepthForY(extraStation.y, extraStation.depthOffset);
+      this.moduleSprites.push(sprite);
+      this.worldLayer.addChild(sprite);
+    }
+    this.refreshFurnitureModules();
+  }
+
+  private refreshFurnitureModules(): void {
+    for (const sprite of this.moduleSprites.filter((item) => item.label.startsWith('table_'))) {
+      this.worldLayer.removeChild(sprite);
+      sprite.destroy();
+    }
+    this.moduleSprites = this.moduleSprites.filter((item) => !item.label.startsWith('table_'));
+    if (this.sceneDefinition.id !== 'main') return;
+    for (const slot of MAIN_2P5D_MODULES.tableSlots) {
+      const level = this.tableLevels[slot.id] ?? 0;
+      if (level <= 0) continue;
+      const asset = level >= 2 ? 'tableFourSeat' : 'tableTwoSeat';
+      const sprite = new Sprite(Texture.from(MAIN_SCENE_MODULE_URLS[asset]));
+      sprite.label = slot.id;
+      sprite.anchor.set(0.5, 1);
+      sprite.position.set(slot.x, slot.y);
+      sprite.width = slot.width;
+      sprite.zIndex = sceneDepthForY(slot.y);
+      this.moduleSprites.push(sprite);
+      this.worldLayer.addChild(sprite);
+    }
+  }
+
+  public setFurnitureState(tableLevels: Readonly<Record<string, number>>, counterLevel: number): void {
+    this.tableLevels = { ...tableLevels };
+    this.counterLevel = counterLevel;
+    this.buildSceneModules();
   }
 
   private drawCustomers(deltaSeconds: number): void {
@@ -206,7 +282,7 @@ export class GreyboxScene {
     const activeIds = new Set(active.map((c) => c.id));
     for (const [id, sprite] of this.customerSprites) {
       if (!activeIds.has(id)) {
-        this.customersLayer.removeChild(sprite.container);
+        this.worldLayer.removeChild(sprite.container);
         sprite.container.destroy({ children: true });
         this.customerSprites.delete(id);
       }
@@ -217,9 +293,10 @@ export class GreyboxScene {
       if (!sprite) {
         sprite = new CustomerCharacter(c.color);
         this.customerSprites.set(c.id, sprite);
-        this.customersLayer.addChild(sprite.container);
+        this.worldLayer.addChild(sprite.container);
       }
       sprite.setPosition(c.pos.x, c.pos.y - 4);
+      sprite.container.zIndex = sceneDepthForY(c.pos.y);
       const isMoving = c.state === 'ENTERING' || c.state === 'LEAVING';
       sprite.update(deltaSeconds, isMoving, c.facing);
 
@@ -481,6 +558,7 @@ export class GreyboxScene {
     this.drawCustomers(deltaSeconds);
     if (this.sceneDefinition.catEnabled) {
       this.catComponent.update(deltaSeconds);
+      this.catComponent.container.zIndex = sceneDepthForY(this.catComponent.getCurrentSpot().pos.y);
     }
 
     if (this.clickFeedbackTime > 0) {
@@ -541,6 +619,7 @@ export class GreyboxScene {
         if (moved) {
           isMoving = true;
           this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
+          this.ownerCharacter.container.zIndex = sceneDepthForY(this.playerPos.y);
           this.callbacks.onPositionChanged(this.playerPos);
           if (this.isDebugVisible) this.updateDebugOverlay();
         }
@@ -579,6 +658,7 @@ export class GreyboxScene {
       }
 
       this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
+      this.ownerCharacter.container.zIndex = sceneDepthForY(this.playerPos.y);
       this.callbacks.onPositionChanged(this.playerPos);
       if (this.isDebugVisible) {
         this.updateDebugOverlay();
@@ -600,6 +680,7 @@ export class GreyboxScene {
     this.pendingCustomer = null;
     this.pendingCat = false;
     this.ownerCharacter.setPosition(this.playerPos.x, this.playerPos.y);
+    this.ownerCharacter.container.zIndex = sceneDepthForY(this.playerPos.y);
     if (this.isDebugVisible) {
       this.updateDebugOverlay();
     }

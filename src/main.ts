@@ -19,6 +19,7 @@ import { CatInteractionManager } from './cat';
 import { EconomyLedger } from './economy';
 import { EquipmentManager } from './equipment';
 import { DreamFundManager, FundMetrics } from './fund';
+import { FurnitureManager } from './furniture';
 import { InventoryManager } from './inventory';
 import { NOOP_LATTE_ART_HOOK, toLatteArtEvent } from './order';
 import { RegularManager } from './regulars';
@@ -62,6 +63,7 @@ async function bootstrap() {
   // 2. Inventory & Economy Ledger (T1.4 & T1.6)
   const inventory = new InventoryManager(initialSave.inventory);
   const ledger = new EconomyLedger(saveManager);
+  const furnitureManager = new FurnitureManager(saveManager, ledger);
 
   // Sync inventory changes back to save state
   const syncInventoryToSave = () => {
@@ -84,6 +86,14 @@ async function bootstrap() {
     main: mainRuntime,
     seaside: seasideRuntime
   };
+  for (const shopId of ['main', 'seaside'] as const) {
+    const runtime = shopRuntimes[shopId];
+    runtime.customerManager.setSceneOptions({
+      tableSeats: furnitureManager.getActiveSeats(shopId, runtime.scene.tableSeats),
+      spawnPos: runtime.scene.customerSpawn,
+      exitPos: runtime.scene.customerExit
+    });
+  }
   const savedActiveShopId = initialSave.world.activeShopId;
   let activeShopId: ShopId =
     savedActiveShopId === 'seaside' && initialSave.world.shops.seaside.unlocked
@@ -506,6 +516,10 @@ async function bootstrap() {
 
   greyboxScene.setCustomerManager(customerManager);
   greyboxScene.setDecorManager(decorManager);
+  greyboxScene.setFurnitureState(
+    furnitureManager.getTableLevels(activeShopId),
+    furnitureManager.getCounterLevel(activeShopId)
+  );
 
   // M3 店员视觉：吧台内侧的小晴（T3.8 批次 F：路人部件 sprite + 米色围裙 tint）
   const staffFigure = new CustomerCharacter(0xd9c39a);
@@ -552,10 +566,32 @@ async function bootstrap() {
     audioManager
   );
 
-  const decorModal = new DecorModal(uiRoot, saveManager, ledger, decorManager, fundManager, buildFundMetrics, toastManager);
+  const decorModal = new DecorModal(
+    uiRoot,
+    saveManager,
+    ledger,
+    decorManager,
+    fundManager,
+    buildFundMetrics,
+    toastManager,
+    furnitureManager,
+    () => activeShopId
+  );
   decorModal.onDecorChanged = () => {
     greyboxScene.refreshDecor();
     applyThemeTint();
+  };
+  decorModal.onFurnitureChanged = () => {
+    const runtime = shopRuntimes[activeShopId];
+    greyboxScene.setFurnitureState(
+      furnitureManager.getTableLevels(activeShopId),
+      furnitureManager.getCounterLevel(activeShopId)
+    );
+    runtime.customerManager.setSceneOptions({
+      tableSeats: furnitureManager.getActiveSeats(activeShopId, runtime.scene.tableSeats),
+      spawnPos: runtime.scene.customerSpawn,
+      exitPos: runtime.scene.customerExit
+    });
   };
 
   const switchActiveShop = (targetShopId: ShopId) => {
@@ -579,6 +615,10 @@ async function bootstrap() {
     greyboxScene.setSceneDefinition(activeRuntime.scene);
     greyboxScene.setCustomerManager(customerManager);
     greyboxScene.setDecorManager(decorManager);
+    greyboxScene.setFurnitureState(
+      furnitureManager.getTableLevels(activeShopId),
+      furnitureManager.getCounterLevel(activeShopId)
+    );
     decorModal.setDecorManager(decorManager);
     applyThemeTint();
     saveManager.updateState((draft) => {

@@ -70,8 +70,8 @@ export const PLAYER_CONFIG = {
   SPEED: 240,
   WIDTH: 32,
   HEIGHT: 48,
-  INITIAL_X: 520,
-  INITIAL_Y: 550,
+  INITIAL_X: 610,
+  INITIAL_Y: 650,
   COLOR: 0x3d7e5d,
   ACCENT_COLOR: 0x24523b
 } as const;
@@ -648,27 +648,27 @@ export interface CatSpotDef {
 export const CAT_SPOTS: readonly CatSpotDef[] = [
   {
     id: 'spot_table_4',
-    name: '4号桌大木桌垫',
-    pos: { x: 440, y: 640 },
-    interactPoint: { x: 530, y: 640 }
+    name: '窗边猫窝软垫',
+    pos: { x: 305, y: 375 },
+    interactPoint: { x: 365, y: 455 }
   },
   {
     id: 'spot_table_3',
-    name: '3号桌靠墙座',
-    pos: { x: 600, y: 470 },
-    interactPoint: { x: 570, y: 570 }
+    name: '窗边一号桌椅',
+    pos: { x: 430, y: 480 },
+    interactPoint: { x: 540, y: 520 }
   },
   {
     id: 'spot_table_2',
-    name: '2号桌旁暖垫',
-    pos: { x: 970, y: 610 },
-    interactPoint: { x: 940, y: 660 }
+    name: '中央二号桌旁',
+    pos: { x: 720, y: 545 },
+    interactPoint: { x: 850, y: 590 }
   },
   {
     id: 'spot_window',
-    name: '大落地窗台绿植旁',
-    pos: { x: 380, y: 550 },
-    interactPoint: { x: 460, y: 580 }
+    name: '阳光地板',
+    pos: { x: 455, y: 590 },
+    interactPoint: { x: 520, y: 625 }
   }
 ] as const;
 
@@ -692,18 +692,144 @@ export const CHAR_ANIM_CONFIG = {
   BODY_TILT_AMPLITUDE: 0.05,
   LIMB_SWING_AMPLITUDE: 0.36,
   IDLE_BREATH_SPEED: 2.2,
-  IDLE_BREATH_SCALE: 0.018
+  IDLE_BREATH_SCALE: 0.018,
+  IDLE_TILT_SPEED_FACTOR: 0.5,
+  IDLE_TILT_AMPLITUDE: 0.012,
+  BREATH_WIDTH_FACTOR: 0.5,
+  OWNER_WIDTH: 76,
+  OWNER_HEIGHT: 238,
+  CUSTOMER_WIDTH: 70,
+  CUSTOMER_HEIGHT: 225,
+  CUSTOMER_TINT_SOFTEN: 0.82,
+  SHADOW_WIDTH: 24,
+  SHADOW_HEIGHT: 7
 } as const;
 
 export const CUSTOMER_CONFIG = {
   SPAWN_INTERVAL_MIN: 10,
   SPAWN_INTERVAL_MAX: 20,
-  MAX_ACTIVE_CUSTOMERS: 4,
+  MAX_ACTIVE_CUSTOMERS: 8,
   PATIENCE_SECONDS: 90,
   EAT_DURATION_SECONDS: 6,
   WALK_SPEED: 180,
-  SPAWN_POS: { x: 520, y: 480 },
-  EXIT_POS: { x: 520, y: 550 }
+  SPAWN_POS: { x: 150, y: 625 },
+  EXIT_POS: { x: 128, y: 650 }
+} as const;
+
+export type MainSceneModuleAsset =
+  | 'catNook'
+  | 'counterBase'
+  | 'equipmentStation'
+  | 'storageShelf'
+  | 'tableTwoSeat'
+  | 'tableFourSeat';
+
+export interface SceneModulePlacement {
+  id: string;
+  asset: MainSceneModuleAsset;
+  x: number;
+  y: number;
+  width: number;
+  anchorX: number;
+  anchorY: number;
+  depthOffset: number;
+}
+
+/** 2:1 斜投影模块布局。所有落点、尺寸和深度偏移只在配置层定义。 */
+export const MAIN_2P5D_MODULES = {
+  static: [
+    { id: 'cat_nook', asset: 'catNook', x: 304, y: 397, width: 330, anchorX: 0.5, anchorY: 1, depthOffset: -18 },
+    { id: 'storage_shelf', asset: 'storageShelf', x: 692, y: 340, width: 365, anchorX: 0.5, anchorY: 1, depthOffset: -22 },
+    { id: 'counter', asset: 'counterBase', x: 1082, y: 460, width: 480, anchorX: 0.5, anchorY: 1, depthOffset: 0 },
+    { id: 'equipment_station', asset: 'equipmentStation', x: 1082, y: 370, width: 245, anchorX: 0.5, anchorY: 1, depthOffset: 96 }
+  ] as readonly SceneModulePlacement[],
+  tableSlots: [
+    { id: 'table_1', x: 430, y: 520, width: 205 },
+    { id: 'table_2', x: 725, y: 585, width: 220 },
+    { id: 'table_3', x: 1045, y: 650, width: 235 }
+  ],
+  depthBase: 1_000,
+  shellDepth: -1_000,
+  clickRippleDepth: 10_000,
+  debugDepth: 20_000
+} as const;
+
+export const MAIN_2P5D_SCENE_OBJECTS: readonly SceneObjectConfig[] = [
+  { id: 'door', name: '街角入口', x: 40, y: 390, width: 210, height: 300, color: 0xa06d44, interactPoint: { x: 165, y: 620 }, hitbox: { x: 20, y: 360, width: 235, height: 340 }, description: '推开门，街角的阳光正好落进来。' },
+  { id: 'cat_nook', name: '橘猫窗边窝', x: 145, y: 260, width: 320, height: 165, color: 0xc48c58, interactPoint: { x: 365, y: 455 }, hitbox: { x: 130, y: 245, width: 350, height: 200 }, description: '铺着鼠尾草绿小毯的窗边窝。' },
+  { id: 'storage_shelf', name: '咖啡储物架', x: 510, y: 160, width: 365, height: 205, color: 0x7a4622, interactPoint: { x: 690, y: 410 }, hitbox: { x: 500, y: 145, width: 390, height: 230 }, description: '杯子、豆罐和手写配方册都分门别类地收好。' },
+  { id: 'counter', name: '蜂蜜木吧台', x: 835, y: 225, width: 490, height: 255, color: 0x8b5428, interactPoint: { x: 865, y: 505 }, hitbox: { x: 820, y: 210, width: 520, height: 285 }, description: '模块化吧台，工作位与取餐位清楚分开。' },
+  { id: 'espresso_machine', name: '意式工作站', x: 970, y: 250, width: 260, height: 130, color: 0x475569, interactPoint: { x: 925, y: 505 }, hitbox: { x: 955, y: 230, width: 290, height: 155 }, description: '咖啡机、磨豆机和糕点柜组成的工作站。' },
+  { id: 'pastry_case', name: '玻璃糕点柜', x: 1110, y: 280, width: 145, height: 110, color: 0xd4a373, interactPoint: { x: 990, y: 510 }, hitbox: { x: 1095, y: 265, width: 170, height: 130 }, description: '小小的玻璃柜里摆着今日烘焙。' },
+  { id: 'table_1', name: '窗边一号桌', x: 320, y: 400, width: 220, height: 150, color: 0xb58451, interactPoint: { x: 540, y: 520 }, hitbox: { x: 305, y: 385, width: 245, height: 180 }, description: '窗边的安静座位。' },
+  { id: 'table_2', name: '中央二号桌', x: 610, y: 455, width: 235, height: 165, color: 0xb58451, interactPoint: { x: 850, y: 590 }, hitbox: { x: 595, y: 440, width: 265, height: 195 }, description: '留出宽阔过道的中央座位。' },
+  { id: 'table_3', name: '右侧三号桌', x: 920, y: 520, width: 250, height: 175, color: 0xb58451, interactPoint: { x: 900, y: 675 }, hitbox: { x: 905, y: 505, width: 280, height: 205 }, description: '靠近右墙、能听见磨豆声的一桌。' }
+] as const;
+
+export const MAIN_2P5D_WALKABLE_ZONES: readonly Rect[] = [
+  { x: 115, y: 560, width: 1170, height: 155 },
+  { x: 360, y: 420, width: 590, height: 210 },
+  { x: 780, y: 465, width: 280, height: 180 }
+] as const;
+
+export const MAIN_2P5D_NAV_WAYPOINTS: readonly NavWaypoint[] = [
+  { id: 'entry', name: '入口', x: 150, y: 635 },
+  { id: 'left_aisle', name: '窗边走道', x: 340, y: 610 },
+  { id: 'center', name: '中央主道', x: 610, y: 650 },
+  { id: 'center_back', name: '中央后道', x: 600, y: 455 },
+  { id: 'counter_left', name: '吧台左侧', x: 865, y: 505 },
+  { id: 'counter_mid', name: '工作站前', x: 950, y: 535 },
+  { id: 'table_1_front', name: '一号桌旁', x: 540, y: 520 },
+  { id: 'table_2_front', name: '二号桌旁', x: 850, y: 590 },
+  { id: 'table_3_front', name: '三号桌旁', x: 900, y: 675 },
+  { id: 'right_aisle', name: '右侧通道', x: 1190, y: 680 }
+] as const;
+
+export const MAIN_2P5D_NAV_EDGES: readonly NavEdge[] = [
+  { from: 'entry', to: 'left_aisle' }, { from: 'left_aisle', to: 'center' },
+  { from: 'left_aisle', to: 'table_1_front' }, { from: 'center', to: 'center_back' },
+  { from: 'center', to: 'table_2_front' }, { from: 'center', to: 'table_3_front' },
+  { from: 'center_back', to: 'counter_left' }, { from: 'counter_left', to: 'counter_mid' },
+  { from: 'table_2_front', to: 'counter_mid' }, { from: 'table_2_front', to: 'table_3_front' },
+  { from: 'table_3_front', to: 'right_aisle' }
+] as const;
+
+export const MAIN_2P5D_TABLE_SEATS: readonly TableSeatDef[] = [
+  { id: 'table_1_a', tableId: 'table_1', name: '窗边一号桌 A', seatPos: { x: 388, y: 470 }, interactPoint: { x: 540, y: 520 } },
+  { id: 'table_1_b', tableId: 'table_1', name: '窗边一号桌 B', seatPos: { x: 475, y: 525 }, interactPoint: { x: 540, y: 520 } },
+  { id: 'table_1_c', tableId: 'table_1', name: '窗边一号桌 C', seatPos: { x: 350, y: 510 }, interactPoint: { x: 540, y: 520 } },
+  { id: 'table_1_d', tableId: 'table_1', name: '窗边一号桌 D', seatPos: { x: 500, y: 480 }, interactPoint: { x: 540, y: 520 } },
+  { id: 'table_2_a', tableId: 'table_2', name: '中央二号桌 A', seatPos: { x: 680, y: 535 }, interactPoint: { x: 850, y: 590 } },
+  { id: 'table_2_b', tableId: 'table_2', name: '中央二号桌 B', seatPos: { x: 770, y: 590 }, interactPoint: { x: 850, y: 590 } },
+  { id: 'table_2_c', tableId: 'table_2', name: '中央二号桌 C', seatPos: { x: 645, y: 575 }, interactPoint: { x: 850, y: 590 } },
+  { id: 'table_2_d', tableId: 'table_2', name: '中央二号桌 D', seatPos: { x: 800, y: 545 }, interactPoint: { x: 850, y: 590 } },
+  { id: 'table_3_a', tableId: 'table_3', name: '右侧三号桌 A', seatPos: { x: 995, y: 600 }, interactPoint: { x: 900, y: 675 } },
+  { id: 'table_3_b', tableId: 'table_3', name: '右侧三号桌 B', seatPos: { x: 1090, y: 650 }, interactPoint: { x: 900, y: 675 } },
+  { id: 'table_3_c', tableId: 'table_3', name: '右侧三号桌 C', seatPos: { x: 950, y: 645 }, interactPoint: { x: 900, y: 675 } },
+  { id: 'table_3_d', tableId: 'table_3', name: '右侧三号桌 D', seatPos: { x: 1125, y: 610 }, interactPoint: { x: 900, y: 675 } }
+] as const;
+
+export const FURNITURE_EXPANSION_CONFIG = {
+  table: [
+    { level: 0, name: '留白空间', cost: 0, seats: 0, asset: null, operationsImpact: '暂不接待顾客，保留宽敞动线。' },
+    { level: 1, name: '温暖双人桌', cost: 90, seats: 2, asset: 'tableTwoSeat', operationsImpact: '增加 2 个座位，可同时接待更多客人。' },
+    { level: 2, name: '绘本四人桌', cost: 180, seats: 4, asset: 'tableFourSeat', operationsImpact: '升级为 4 个座位，提升店内并发接待量。' }
+  ],
+  counter: [
+    { level: 0, name: '基础吧台', cost: 0, workstations: 1, pickupSlots: 1, prepEfficiency: 1, operationsImpact: '1 个制作位与 1 个取餐位。' },
+    { level: 1, name: '备餐延展台', cost: 240, workstations: 1, pickupSlots: 2, prepEfficiency: 1.08, operationsImpact: '增加备餐面与第 2 个等候位。' },
+    { level: 2, name: '双工作站', cost: 420, workstations: 2, pickupSlots: 2, prepEfficiency: 1.16, operationsImpact: '店主与店员可并行制作。' },
+    { level: 3, name: '完整暖木吧台', cost: 680, workstations: 2, pickupSlots: 3, prepEfficiency: 1.24, operationsImpact: '加入糕点展示与一个装饰槽。' }
+  ],
+  defaultTableLevels: { table_1: 1, table_2: 1, table_3: 1 },
+  defaultCounterLevel: 0,
+  counterVisuals: {
+    bodyWidths: [480, 500, 525, 550],
+    equipmentWidths: [210, 225, 238, 245],
+    secondaryStation: { x: 1215, y: 365, width: 155, fromLevel: 2, depthOffset: 102 }
+  },
+  insufficientGoldCopy: '钱箱还差一点点，先招待几位客人再来看看吧。',
+  purchaseSuccessCopy: '新家具已经稳稳摆好，随时都能免费移动或收起。'
 } as const;
 
 export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
@@ -711,11 +837,11 @@ export const SHOP_SCENES: Record<ShopId, ShopSceneDefinition> = {
     id: 'main',
     name: '街角本店',
     backgroundKey: 'main',
-    sceneObjects: SCENE_OBJECTS,
-    walkableZones: WALKABLE_ZONES,
-    navWaypoints: NAV_WAYPOINTS,
-    navEdges: NAV_EDGES,
-    tableSeats: TABLE_SEATS,
+    sceneObjects: MAIN_2P5D_SCENE_OBJECTS,
+    walkableZones: MAIN_2P5D_WALKABLE_ZONES,
+    navWaypoints: MAIN_2P5D_NAV_WAYPOINTS,
+    navEdges: MAIN_2P5D_NAV_EDGES,
+    tableSeats: MAIN_2P5D_TABLE_SEATS,
     playerStart: { x: PLAYER_CONFIG.INITIAL_X, y: PLAYER_CONFIG.INITIAL_Y },
     customerSpawn: CUSTOMER_CONFIG.SPAWN_POS,
     customerExit: CUSTOMER_CONFIG.EXIT_POS,
